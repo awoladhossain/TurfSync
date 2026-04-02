@@ -1,98 +1,396 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 🏟️ TurfBook: Advanced Turf Booking & Management System
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+**TurfBook** is a high-performance backend application for managing sports turf bookings (Football, Cricket, etc.). Built with **NestJS** and **TypeScript**, this project implements enterprise-level architecture patterns with a focus on reliability, scalability, and clean code practices.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## 📋 Table of Contents
+- [Overview](#overview)
+- [Tech Stack](#tech-stack)
+- [Features](#features)
+- [Project Structure](#project-structure)
+- [Installation](#installation)
+- [Running the Application](#running-the-application)
+- [Testing](#testing)
+- [API Documentation](#api-documentation)
+- [Development Guidelines](#development-guidelines)
+- [Contributing](#contributing)
+- [License](#license)
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+---
 
-## Project setup
+## 🎯 Overview
 
-```bash
-$ npm install
+TurfBook is a backend REST API designed to facilitate turf (sports ground) booking management. The system supports multiple user roles (Players, Turf Owners, Admins) with distinct workflows, real-time slot availability management, and transaction-safe booking operations.
+
+### Key Objectives
+- Prevent double booking through atomic transactions
+- Provide a seamless booking experience for players
+- Enable turf owners to manage availability and pricing
+- Maintain high availability and performance under load
+
+---
+
+## 🛠️ Tech Stack
+
+| Category | Technology |
+|----------|-----------|
+| **Runtime** | Node.js |
+| **Framework** | NestJS 11 |
+| **Language** | TypeScript |
+| **Database** | PostgreSQL |
+| **ORM** | Prisma |
+| **Validation** | class-validator, class-transformer |
+| **Testing** | Jest |
+| **Code Quality** | ESLint, Prettier |
+| **Containerization** | Docker, Docker Compose |
+| **Configuration** | @nestjs/config |
+
+---
+
+## ✨ Features
+
+### Core Features
+- **Role-Based Access Control (RBAC)** - Distinct workflows for Players, Turf Owners, and Admins
+- **Atomic Booking Logic** - Prevents double booking using PostgreSQL transactions
+- **Real-time Slot Management** - Dynamic availability tracking with instant status updates
+- **User Authentication** - Secure session management with configuration-based settings
+- **Request Validation** - Type-safe DTO validation with class-validator
+
+### Technical Highlights
+- **Modular Architecture** - Clean separation of concerns with independent modules
+- **Error Handling** - Comprehensive exception handling with custom error responses
+- **Testing Coverage** - Unit tests and E2E tests with Jest
+- **Development Experience** - Hot reload, debug mode, and watch mode support
+- **Code Quality** - Automated linting and formatting with ESLint and Prettier
+
+---
+
+## 📁 Project Structure
+
+```
+turfbook/
+├── src/
+│   ├── app.module.ts           # Root application module
+│   ├── app.controller.ts       # Main HTTP controller
+│   ├── app.controller.spec.ts  # Unit tests for controller
+│   ├── app.service.ts          # Business logic service
+│   ├── main.ts                 # Application bootstrap
+│   └── [modules]/              # Feature modules (to be expanded)
+├── test/
+│   ├── app.e2e-spec.ts         # End-to-end tests
+│   └── jest-e2e.json           # Jest E2E configuration
+├── docker-compose.yml          # Docker Compose configuration
+├── package.json                # Dependencies and scripts
+├── tsconfig.json               # TypeScript configuration
+├── tsconfig.build.json         # TypeScript build configuration
+├── eslint.config.mjs           # ESLint configuration
+├── nest-cli.json               # NestJS CLI configuration
+└── README.md                   # This file
 ```
 
-## Compile and run the project
+---
 
+## 🔧 Installation
+
+### Prerequisites
+- **Node.js** >= 18 (v22 recommended)
+- **npm** >= 9 or **yarn** >= 1.22
+- **Docker** and **Docker Compose** (optional, for containerized setup)
+
+### Steps
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/yourusername/turfbook.git
+   cd turfbook
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Configure environment variables:**
+   Create a `.env` file in the root directory (optional, for advanced configuration):
+   ```bash
+   cp .env.example .env  # if available
+   ```
+
+4. **Set up the database (if using PostgreSQL):**
+   ```bash
+   # Using Docker Compose
+   docker-compose up -d
+
+   # Or run your PostgreSQL service locally
+   ```
+
+5. **Run database migrations (if using Prisma):**
+   ```bash
+   npx prisma migrate dev
+   ```
+
+---
+
+## 🚀 Running the Application
+
+### Development Mode
+Start the application in watch mode with auto-reload:
 ```bash
-# development
-$ npm run start
+npm run start:dev
+```
+The API will be available at `http://localhost:3000`
 
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+### Production Mode
+Build and run the optimized production version:
+```bash
+npm run build
+npm run start:prod
 ```
 
-## Run tests
-
+### Debug Mode
+Start the application with Node debugger enabled:
 ```bash
-# unit tests
-$ npm run test
+npm run start:debug
+```
+Attach your IDE debugger to port 9229
 
-# e2e tests
-$ npm run test:e2e
+### Using Docker
+```bash
+# Build and run with Docker Compose
+docker-compose up --build
 
-# test coverage
-$ npm run test:cov
+# Run in detached mode
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
 ```
 
-## Deployment
+---
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+## 🧪 Testing
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
+### Run All Tests
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm run test
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### Run Tests in Watch Mode
+Monitor and re-run tests on file changes:
+```bash
+npm run test:watch
+```
 
-## Resources
+### Run Tests with Coverage
+Generate coverage report:
+```bash
+npm run test:cov
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+### Run E2E Tests
+```bash
+npm run test:e2e
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+### Debug Tests
+Launch Jest with Node debugger:
+```bash
+npm run test:debug
+```
 
-## Support
+---
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## 📚 Code Quality
 
-## Stay in touch
+### Format Code
+Auto-format with Prettier:
+```bash
+npm run format
+```
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+### Lint Code
+Run ESLint with auto-fix:
+```bash
+npm run lint
+```
 
-## License
+---
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## 🔌 API Documentation
+
+### Base URL
+```
+http://localhost:3000/api
+```
+
+### Health Check
+```http
+GET /health
+```
+
+### Available Endpoints
+- **Authentication** - User login, logout, token refresh
+- **Users** - User profile management
+- **Turfs** - Turf listing, details, search
+- **Slots** - Availability management
+- **Bookings** - Create, retrieve, cancel bookings
+
+> Full API documentation will be available via Swagger/OpenAPI (implementation pending)
+
+---
+
+## 🏗️ Development Guidelines
+
+### Code Structure
+- **Modules** - Feature-based modules in `src/`
+- **Controllers** - HTTP request handlers
+- **Services** - Business logic and data operations
+- **DTOs** - Data Transfer Objects for request/response validation
+- **Entities** - Database models
+- **Guards** - Authorization and authentication logic
+- **Middleware** - Request/response interceptors
+
+### Best Practices
+1. **Type Safety** - Always use TypeScript; avoid `any` type
+2. **Validation** - Use class-validator DTOs for request validation
+3. **Error Handling** - Use NestJS exception filters
+4. **Testing** - Write tests alongside features; aim for >80% coverage
+5. **Code Style** - Follow ESLint rules; run formatter before commit
+6. **Documentation** - Add JSDoc comments for complex logic
+7. **Transactions** - Use database transactions for critical operations
+
+### Creating a New Module
+```bash
+nest generate module features/users
+nest generate controller features/users
+nest generate service features/users
+```
+
+---
+
+## 📦 Dependencies
+
+### Core Dependencies
+- `@nestjs/common` - NestJS core module
+- `@nestjs/core` - NestJS runtime
+- `@nestjs/platform-express` - Express.js integration
+- `@nestjs/config` - Configuration management
+- `class-validator` - DTO validation
+- `class-transformer` - DTO transformation
+- `reflect-metadata` - Metadata reflection
+- `rxjs` - Reactive programming library
+
+### Dev Dependencies
+- `jest` - Testing framework
+- `elasticsearch` - ESLint configuration
+- `prettier` - Code formatter
+- `@nestjs/testing` - NestJS testing utilities
+- `@nestjs/cli` - Command line tools
+- `ts-jest` - TypeScript support for Jest
+- `supertest` - HTTP assertion library
+- `typescript` - TypeScript compiler
+
+---
+
+## 🐛 Troubleshooting
+
+### Port Already in Use
+If port 3000 is occupied:
+```bash
+# Change the default port
+PORT=3001 npm run start:dev
+
+# Or kill the process
+lsof -i :3000
+kill -9 <PID>
+```
+
+### Database Connection Error
+- Verify PostgreSQL is running
+- Check `.env` database credentials
+- Ensure database exists
+- Run migrations: `npx prisma migrate dev`
+
+### Dependencies Issues
+```bash
+# Clear node_modules and reinstall
+rm -rf node_modules package-lock.json
+npm install
+```
+
+### TypeScript Errors
+```bash
+# Recompile TypeScript
+npm run build
+
+# Or check for type errors
+npx tsc --noEmit
+```
+
+---
+
+## 📋 Checklist for New Developers
+
+- [ ] Node.js and npm installed
+- [ ] Repository cloned
+- [ ] Dependencies installed (`npm install`)
+- [ ] Environment variables configured (`.env`)
+- [ ] Database set up and migrations run
+- [ ] Application starts successfully (`npm run start:dev`)
+- [ ] Tests pass (`npm run test`)
+- [ ] ESLint passes (`npm run lint`)
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these guidelines:
+
+1. **Fork the repository**
+2. **Create a feature branch** (`git checkout -b feature/amazing-feature`)
+3. **Commit changes** (`git commit -m 'Add amazing feature'`)
+4. **Push to branch** (`git push origin feature/amazing-feature`)
+5. **Open a Pull Request**
+
+### Code Review Criteria
+- All tests pass
+- Code follows ESLint rules
+- No console.log statements in production code
+- TypeScript has strict mode enabled
+- Test coverage maintained or improved
+- Commit messages are clear and descriptive
+
+---
+
+## 📄 License
+
+This project is licensed under the **UNLICENSED** license. See [LICENSE](./LICENSE) file for details.
+
+---
+
+## 📞 Support
+
+For issues, questions, or suggestions:
+- Open an issue on GitHub
+- Check existing documentation
+- Review test files for usage examples
+
+---
+
+## 🔗 Useful Resources
+
+- [NestJS Documentation](https://docs.nestjs.com)
+- [TypeScript Handbook](https://www.typescriptlang.org/docs)
+- [Jest Documentation](https://jestjs.io)
+- [Prisma Documentation](https://www.prisma.io/docs)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs)
+
+---
+
+**Happy Coding! 🚀**
+
+Last Updated: April 2026
