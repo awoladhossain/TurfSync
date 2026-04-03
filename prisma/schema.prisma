@@ -1,13 +1,132 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
-  // output   = "../generated/prisma"
+  // output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum SportType {
+  FOOTBALL
+  CRICKET
+  BOTH
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String @unique
+  phone        String
+  passwordHash String
+  role         Role     @default(USER)
+  isVerified   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  refreshTokens RefreshToken[]
+  bookings      Booking[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Turf {
+  id           String    @id @default(uuid())
+  name         String
+  description  String
+  address      String
+  city         String
+  sportType    SportType
+  pricePerHour Decimal   @db.Decimal(10, 2)
+  openTime     String
+  closeTime    String
+  isActive     Boolean   @default(true)
+  images       String[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  slots    Slot[]
+  bookings Booking[]
+
+  @@map("turfs")
+}
+
+model Slot {
+  id        String   @id @default(uuid())
+  turfId    String
+  date      DateTime @db.Date
+  startTime String
+  endTime   String
+  isBooked  Boolean  @default(false)
+
+  turf    Turf     @relation(fields: [turfId], references: [id])
+  booking Booking?
+
+  @@unique([turfId, date, startTime]) // ensures that a turf cannot have two slots at the same time on the same date
+  @@map("slots")
+}
+
+model Booking {
+  id            String        @id @default(uuid())
+  userId        String
+  turfId        String
+  slotId        String        @unique
+  totalAmount   Decimal       @db.Decimal(10, 2) // db.decimal is used for currency
+  status        BookingStatus @default(PENDING)
+  paymentStatus PaymentStatus @default(UNPAID)
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id])
+  turf    Turf     @relation(fields: [turfId], references: [id])
+  slot    Slot     @relation(fields: [slotId], references: [id])
+  payment Payment?
+
+  @@map("bookings")
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  bookingId     String        @unique
+  amount        Decimal       @db.Decimal(10, 2)
+  method        String
+  transactionId String?       @unique
+  status        PaymentStatus @default(UNPAID)
+  paidAt        DateTime?
+  createdAt     DateTime      @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@map("payments")
 }
