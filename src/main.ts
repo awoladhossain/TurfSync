@@ -4,8 +4,10 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
   // global prefix for all routes
   app.setGlobalPrefix('api');
+
 
   // validation pipe for all incoming requests
   app.useGlobalPipes(
