@@ -8,7 +8,6 @@ async function bootstrap() {
   // global prefix for all routes
   app.setGlobalPrefix('api');
 
-
   // validation pipe for all incoming requests
   app.useGlobalPipes(
     new ValidationPipe({
@@ -25,4 +24,4 @@ async function bootstrap() {
   await app.listen(port);
   console.log(`TurfBook running on: http://localhost:${port}/api`);
 }
-bootstrap();
+void bootstrap();
