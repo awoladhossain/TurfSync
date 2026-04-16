@@ -19,7 +19,6 @@ async function bootstrap() {
 
   // cors configuration
   app.enableCors();
-
   const port = process.env.PORT || 3000;
   await app.listen(port);
   console.log(`TurfBook running on: http://localhost:${port}/api`);

@@ -1,8 +1,13 @@
 import { PrismaService } from '@/prisma/prisma.service';
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
+import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 
 @Injectable()
@@ -13,12 +18,19 @@ export class AuthService {
     private configService: ConfigService,
   ) {}
 
-  //  register
+  //* register
 
   async register(dto: RegisterDto) {
     const existingUser = await this.prisma.user.findFirst({
       where: {
-        OR: [{ email: dto.email }, { phone: dto.phone }],
+        OR: [
+          {
+            email: dto.email,
+          },
+          {
+            phone: dto.phone,
+          },
+        ],
       },
     });
     if (existingUser) {
@@ -48,12 +60,75 @@ export class AuthService {
         createdAt: true,
       },
     });
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    // token pair
+    const tokens = await this.generateToken(user.id, user.email, user.role);
     return { user, ...tokens };
   }
-  // generate token
 
-  private async generateTokens(userId: string, email: string, role: string) {
+  //*  login
+  async login(dto: LoginDto) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        email: dto.email,
+      },
+    });
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    const isPasswordValid = await bcrypt.compare(
+      dto.password,
+      user.passwordHash,
+    );
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    const tokens = await this.generateToken(user.id, user.email, user.role);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { passwordHash, ...userWithoutPassword } = user;
+    return { user: userWithoutPassword, ...tokens };
+  }
+
+  //* logout
+  async logout(userId: string, refreshToken: string) {
+    await this.prisma.refreshToken.deleteMany({
+      where: {
+        userId,
+        token: refreshToken,
+      },
+    });
+    return { message: 'Logout successful' };
+  }
+
+  //* logout all devices
+
+  async logoutAll(userId: string) {
+    await this.prisma.refreshToken.deleteMany({
+      where: {
+        userId,
+      },
+    });
+    return { message: 'Logout all devices successful' };
+  }
+
+  // * refresh token
+  async refreshTokens(userId: string, oldRefreshToken: string) {
+    await this.prisma.refreshToken.deleteMany({
+      where: {
+        token: oldRefreshToken,
+      },
+    });
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+    const tokens = await this.generateToken(user.id, user.email, user.role);
+    return { ...tokens };
+  }
+  //* generate JWT token
+  private async generateToken(userId: string, email: string, role: string) {
     const payload = { sub: userId, email, role };
 
     // access token
@@ -67,8 +142,9 @@ export class AuthService {
       expiresIn: this.configService.get('JWT_REFRESH_EXPIRES_IN'), // 7d
     });
 
+    //  save refresh token in database
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days from now
+    expiresAt.setDate(expiresAt.getDate() + 7);
 
     await this.prisma.refreshToken.create({
       data: {
@@ -77,6 +153,23 @@ export class AuthService {
         expiresAt,
       },
     });
+
     return { accessToken, refreshToken };
+  }
+
+  // * get user profile
+  async getProfile(userId: string) {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        isVerified: true,
+        createdAt: true,
+      },
+    });
   }
 }
