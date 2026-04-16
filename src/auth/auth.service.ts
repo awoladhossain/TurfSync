@@ -61,7 +61,7 @@ export class AuthService {
       },
     });
     // token pair
-    const tokens = await this.generateToken(user.id, user.email, user.role);
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
     return { user, ...tokens };
   }
 
@@ -82,7 +82,7 @@ export class AuthService {
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    const tokens = await this.generateToken(user.id, user.email, user.role);
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash, ...userWithoutPassword } = user;
     return { user: userWithoutPassword, ...tokens };
@@ -112,23 +112,28 @@ export class AuthService {
 
   // * refresh token
   async refreshTokens(userId: string, oldRefreshToken: string) {
-    await this.prisma.refreshToken.deleteMany({
+    const tokenInDb = await this.prisma.refreshToken.findFirst({
       where: {
         token: oldRefreshToken,
+        userId: userId,
       },
+    });
+
+    if (!tokenInDb) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+    await this.prisma.refreshToken.delete({
+      where: { id: tokenInDb.id },
     });
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
-    if (!user) {
-      throw new UnauthorizedException('User not found');
-    }
-    const tokens = await this.generateToken(user.id, user.email, user.role);
-    return { ...tokens };
+    if (!user) throw new UnauthorizedException('User not found');
+    return this.generateTokens(user.id, user.email, user.role);
   }
   //* generate JWT token
-  private async generateToken(userId: string, email: string, role: string) {
+  private async generateTokens(userId: string, email: string, role: string) {
     const payload = { sub: userId, email, role };
 
     // access token
