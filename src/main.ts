@@ -1,13 +1,17 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { WinstonModule } from 'nest-winston';
 import { AppModule } from './app.module';
-
+import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
+import { winstonConfig } from './common/logger/winston.config';
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger: WinstonModule.createLogger(winstonConfig),
+  });
 
   // global prefix for all routes
   app.setGlobalPrefix('api');
-
+  app.useGlobalFilters(new GlobalExceptionFilter());
   // validation pipe for all incoming requests
   app.useGlobalPipes(
     new ValidationPipe({
