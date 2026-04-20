@@ -1,9 +1,10 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
+import { RedisLockService } from './redis-lock.service';
+import { REDIS_CLIENT } from './redis.constants';
 
 // This token will be used to inject the Redis client into other services
-export const REDIS_CLIENT = 'REDIS_CLIENT';
 
 /**
  * This module provides a Redis client that can be injected into other services.
@@ -25,7 +26,8 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
       },
       inject: [ConfigService], // Inject the ConfigService to access environment variables
     },
+    RedisLockService,
   ],
-  exports: [REDIS_CLIENT], // Export the Redis client so it can be used in other modules
+  exports: [REDIS_CLIENT, RedisLockService], // Export the Redis client and lock service so they can be used in other modules
 })
 export class RedisModule {}
