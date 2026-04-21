@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { RedisModule } from './redis/redis.module';
 import { QueueModule } from './queue/queue.module';
 import { TurfModule } from './turf/turf.module';
+import { BookingModule } from './booking/booking.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { TurfModule } from './turf/turf.module';
     RedisModule,
     QueueModule,
     TurfModule,
+    BookingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
