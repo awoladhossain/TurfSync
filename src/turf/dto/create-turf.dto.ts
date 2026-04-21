@@ -17,8 +17,8 @@ export class CreateTurfDto {
   name!: string;
 
   @IsString()
-  @IsOptional()
-  description?: string;
+  @IsNotEmpty()
+  description!: string;
 
   @IsString()
   @IsNotEmpty()
