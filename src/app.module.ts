@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { RedisModule } from './redis/redis.module';
 import { QueueModule } from './queue/queue.module';
+import { TurfModule } from './turf/turf.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { QueueModule } from './queue/queue.module';
     AuthModule,
     RedisModule,
     QueueModule,
+    TurfModule,
   ],
   controllers: [AppController],
   providers: [AppService],
