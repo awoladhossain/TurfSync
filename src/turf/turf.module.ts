@@ -4,6 +4,6 @@ import { TurfService } from './turf.service';
 
 @Module({
   controllers: [TurfController],
-  providers: [TurfService]
+  providers: [TurfService],
 })
 export class TurfModule {}
