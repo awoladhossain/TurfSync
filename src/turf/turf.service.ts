@@ -109,4 +109,20 @@ export class TurfService {
     await this.redis.delByPattern(`turf:list:*`);
     return turf;
   }
+
+  async remove(id: string) {
+    const existingTurf = await this.prisma.turf.findUnique({
+      where: { id },
+    });
+    if (!existingTurf) {
+      throw new ConflictException(`Turf with id "${id}" not found.`);
+    }
+    await this.prisma.turf.update({
+      where: { id },
+      data: { isActive: false },
+    });
+    await this.redis.del(`turf:${id}`);
+    await this.redis.delByPattern(`turf:list:*`);
+    return { message: `Turf with id "${id}" has been removed.` };
+  }
 }
