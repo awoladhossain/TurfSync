@@ -80,5 +80,33 @@ export class TurfService {
   // find one by id
   async findOne(id: string) {
     const cacheKey = `turf:${id}`;
+    const cached = await this.redis.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+    const turf = await this.prisma.turf.findUnique({
+      where: { id },
+    });
+    if (!turf) {
+      throw new ConflictException(`Turf with id "${id}" not found.`);
+    }
+    await this.redis.set(cacheKey, turf, 300); // cache for 5 minutes
+    return turf;
+  }
+
+  async update(id: string, dto: Partial<CreateTurfDto>) {
+    const existingTurf = await this.prisma.turf.findUnique({
+      where: { id },
+    });
+    if (!existingTurf) {
+      throw new ConflictException(`Turf with id "${id}" not found.`);
+    }
+    const turf = await this.prisma.turf.update({
+      where: { id },
+      data: dto,
+    });
+    await this.redis.del(`turf:${id}`);
+    await this.redis.delByPattern(`turf:list:*`);
+    return turf;
   }
 }
