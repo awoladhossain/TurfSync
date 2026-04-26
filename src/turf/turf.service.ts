@@ -125,4 +125,29 @@ export class TurfService {
     await this.redis.delByPattern(`turf:list:*`);
     return { message: `Turf with id "${id}" has been removed.` };
   }
+  // available turfs for a given time range
+  async getAvailableSlots(turfId: string, date: string) {
+    const cacheKey = `slots:available:${turfId}:${date}`;
+
+    const cached = await this.redis.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+    const turf = await this.prisma.turf.findUnique({
+      where: { id: turfId },
+    });
+    if (!turf) {
+      throw new ConflictException(`Turf with id "${turfId}" not found.`);
+    }
+    const slots = await this.prisma.slot.findMany({
+      where: {
+        turfId,
+        date: new Date(date),
+      },
+      orderBy: { startTime: 'asc' },
+    });
+    const result = { turf, slots, date };
+    await this.redis.set(cacheKey, result, 60);
+    return result;
+  }
 }
