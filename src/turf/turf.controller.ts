@@ -4,8 +4,10 @@ import { RolesGuard } from '@/common/guards/roles.guard';
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -39,5 +41,19 @@ export class TurfController {
   @Roles(Role.ADMIN)
   create(@Body() dto: CreateTurfDto) {
     return this.turfService.create(dto);
+  }
+
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  update(@Param('id') id: string, @Body() dto: Partial<CreateTurfDto>) {
+    return this.turfService.update(id, dto);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  remove(@Param('id') id: string) {
+    return this.turfService.remove(id);
   }
 }
