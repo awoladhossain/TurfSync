@@ -9,6 +9,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { BookingStatus } from '@prisma/client';
 import type { Queue } from 'bull';
 import { CreateBookingDto } from './dto/create-booking.dto';
 
@@ -57,15 +58,38 @@ export class BookingService {
           where: { id: dto.slotId },
           data: { isBooked: true },
         });
-
         // booking create
-
         return tx.booking.create({
           data: {
             userId,
+            turfId: dto.turfId,
+            slotId: dto.slotId,
+            totalAmount: slot.turf.pricePerHour,
+            notes: dto.notes,
+            status: BookingStatus.CONFIRMED,
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+            turf: {
+              select: {
+                id: true,
+                name: true,
+                address: true,
+              },
+            },
+            slot: true,
           },
         });
       });
+
+      //  slot availability cache clear
+      await this.redis.delByPattern(`slots:available:${dto.turfId}:*`);
     } finally {
       await this.redis.releaseLock(lockKey);
     }
