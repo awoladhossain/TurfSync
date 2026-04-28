@@ -50,7 +50,24 @@ export class BookingService {
       if (slot.isBooked) {
         throw new ConflictException('Slot is already booked');
       }
+      // DB transaction atomic operation
+      const booking = await this.prisma.$transaction(async (tx) => {
+        // slot booked mark
+        await tx.slot.update({
+          where: { id: dto.slotId },
+          data: { isBooked: true },
+        });
+
+        // booking create
+
+        return tx.booking.create({
+          data: {
+            userId,
+          },
+        });
+      });
     } finally {
+      await this.redis.releaseLock(lockKey);
     }
   }
 }
