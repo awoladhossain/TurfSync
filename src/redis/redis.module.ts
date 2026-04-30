@@ -1,4 +1,4 @@
-import { Global, Module } from '@nestjs/common';
+import { Global, Logger, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { RedisLockService } from './redis-lock.service';
@@ -18,11 +18,25 @@ import { REDIS_CLIENT } from './redis.constants';
     {
       provide: REDIS_CLIENT,
       useFactory: (configService: ConfigService) => {
-        return new Redis({
+        const logger = new Logger('RedisClient');
+        const client = new Redis({
           host: configService.get('REDIS_HOST', 'localhost'), // Default to 'localhost' if REDIS_HOST is not set
           port: configService.get('REDIS_PORT', 6379), // Default to 6379 if REDIS_PORT is not set
-          retryStrategy: (times) => Math.min(times * 50, 2000), // Retry strategy with exponential backoff
+          retryStrategy: (times) => {
+            const delay = Math.min(times * 50, 2000);
+            logger.warn(
+              `Redis connection lost. Attempting to reconnect... (attempt ${times}, retrying in ${delay}ms)`,
+            );
+            return delay;
+          }, // Retry strategy with exponential backoff
         });
+        client.on('error', (err) => {
+          logger.error(`Redis error: ${err.message}`, err.stack);
+        });
+        client.on('connect', () => {
+          logger.log('Successfully connected to Redis');
+        });
+        return client;
       },
       inject: [ConfigService], // Inject the ConfigService to access environment variables
     },
