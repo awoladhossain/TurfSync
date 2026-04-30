@@ -121,3 +121,50 @@ const isLocked = await this.redisLockService.acquireLock(lockKey);
 
 4. রিলিজ: কাজ শেষ হলে releaseLock কল করে চাবিটি ফেলে দেওয়া হয় যাতে অন্যরা সুযোগ পায়।
    এটি মূলত ডিস্ট্রিবিউটেড সিস্টেমে Data Integrity বা তথ্যের সঠিকতা বজায় রাখার একটি স্ট্যান্ডার্ড পদ্ধতি।
+
+---
+
+### প্রজেক্টের Caching Strategy-র একটি অত্যন্ত গুরুত্বপূর্ণ অংশ।
+
+```bash
+  async set(key: string, value: any, ttlSeconds?: number): Promise<void> {
+    const serialized = JSON.stringify(value);
+    if (ttlSeconds !== undefined) {
+      await this.redis.setex(key, ttlSeconds, serialized);
+    } else {
+      await this.redis.set(key, serialized);
+    }
+  }
+```
+
+1. `value: any এবং JSON.stringify(value)`
+
+```bash
+const serialized = JSON.stringify(value);
+```
+
+- কেন এটি করা হয়েছে?: Redis মূলত শুধু String (লেখা) চেনে। কিন্তু আপনার কোডে ডাটা থাকতে পারে Object বা Array হিসেবে (যেমন: একটি টার্ফের সব তথ্য)
+
+- Serialization: JSON.stringify আপনার পুরো অবজেক্ট বা ডাটাকে একটি লম্বা স্ট্রিং-এ রূপান্তর করে ফেলে, যাতে Redis সেটি নিজের কাছে জমা রাখতে পারে। একে বলা হয় Serialization।
+
+2. ttlSeconds?: number
+   TTL মানে কী?: এর পূর্ণরূপ হলো Time To Live। অর্থাৎ এই ডাটাটি কতক্ষণ Redis-এ থাকবে।
+   কেন এটি দরকার?: ধরুন আপনি টার্ফের দাম ক্যাশ করে রাখলেন। ওনার যদি দাম পরিবর্তন করে, তবে আপনার ক্যাশ ডাটা কিন্তু পুরোনোই থেকে যাবে। তাই আমরা একটি সময় (যেমন ৩০০ সেকেন্ড বা ৫ মিনিট) সেট করে দেই যাতে নির্দিষ্ট সময় পর ডাটাটি অটোমেটিক ডিলিট হয়ে যায় এবং নতুন ডাটা আবার ক্যাশ হয়।
+3. if (ttlSeconds !== undefined) লজিক
+   এখানে মেথডটি দুইভাবে কাজ করে:
+
+- কেস ১: যখন সময় (TTL) দেওয়া থাকে (setex):
+
+```bash
+await this.redis.setex(key, ttlSeconds, serialized);
+```
+
+এটি একটি বিশেষ কমান্ড যা একইসাথে ডাটা সেভ করে এবং তার একটি "Expire Time" সেট করে দেয়। নির্দিষ্ট সময় পর এটি ভ্যানিশ হয়ে যাবে।
+
+- কেস ২: যখন সময় দেওয়া থাকে না (set):
+
+```bash
+await this.redis.set(key, serialized);
+```
+
+এটি ডাটাটি পারমানেন্টলি সেভ করে রাখে। যতক্ষণ না আপনি নিজে ডিলিট করছেন বা Redis রিস্টার্ট হচ্ছে, এটি সরবে না।

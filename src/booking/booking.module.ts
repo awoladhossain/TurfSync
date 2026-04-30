@@ -1,3 +1,4 @@
+import { NotificationProcessor } from '@/queue/processors/notification.processor';
 import { NOTIFICATION_QUEUE } from '@/queue/queue.constant';
 import { BullModule } from '@nestjs/bull';
 import { Module } from '@nestjs/common';
@@ -11,6 +12,6 @@ import { BookingService } from './booking.service';
     }),
   ],
   controllers: [BookingController],
-  providers: [BookingService],
+  providers: [BookingService, NotificationProcessor],
 })
 export class BookingModule {}
