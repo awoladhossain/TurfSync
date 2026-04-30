@@ -1,5 +1,6 @@
 import { PrismaService } from '@/prisma/prisma.service';
 import {
+  BOOKING_CANCELLED_JOB,
   BOOKING_CONFIRMED_JOB,
   NOTIFICATION_QUEUE,
 } from '@/queue/queue.constant';
@@ -159,5 +160,76 @@ export class BookingService {
       );
     }
     return booking;
+  }
+
+  // cancel booking
+
+  async cancel(id: string, userId: string) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id },
+      include: { slot: true, user: true },
+    });
+    if (!booking) {
+      throw new NotFoundException(`No booking found`);
+    }
+    if (booking.userId !== userId) {
+      throw new ForbiddenException(
+        `You are not authorized to cancel this booking`,
+      );
+    }
+    if (booking.status === BookingStatus.CANCELLED) {
+      throw new BadRequestException(`Booking is already cancelled`);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.booking.update({
+        where: { id },
+        data: { status: BookingStatus.CANCELLED },
+      });
+
+      await tx.slot.update({
+        where: { id: booking.slotId },
+        data: { isBooked: false },
+      });
+    });
+
+    //  cache clear
+    await this.redis.delByPattern(`slots:available:${booking.turfId}:*`);
+
+    // cancellation notification job
+    await this.notificationQueue.add(
+      BOOKING_CANCELLED_JOB,
+      {
+        booking,
+        user: booking.user,
+      },
+      { attempts: 3, backoff: 5000, removeOnComplete: true },
+    );
+    this.logger.log(`Booking ${id} cancelled by user ${userId}`);
+
+    return { message: 'Booking cancelled successfully' };
+  }
+
+  // admin - find all bookings
+  async findAll(page = 1, limit = 10) {
+    const skip = (page - 1) * limit;
+    const [bookings, total] = await Promise.all([
+      this.prisma.booking.findMany({
+        skip,
+        take: limit,
+        include: {
+          user: { select: { id: true, name: true, phone: true } },
+          turf: { select: { id: true, name: true, address: true } },
+          slot: true,
+          payment: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.booking.count(),
+    ]);
+    return {
+      data: bookings,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
   }
 }
