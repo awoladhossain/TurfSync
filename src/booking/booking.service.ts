@@ -8,6 +8,7 @@ import { InjectQueue } from '@nestjs/bull';
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -118,5 +119,45 @@ export class BookingService {
     } finally {
       await this.redis.releaseLock(lockKey);
     }
+  }
+
+  // find my bookings
+  async findMyBookings(userId: string) {
+    const result = await this.prisma.booking.findMany({
+      where: {
+        userId,
+      },
+      include: {
+        turf: { select: { id: true, name: true, address: true, city: true } },
+        slot: true,
+        payment: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+    return result;
+  }
+
+  // find one
+  async findOne(id: string, userId: string) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id },
+      include: {
+        turf: true,
+        slot: true,
+        user: { select: { id: true, name: true, email: true, phone: true } },
+        payment: true,
+      },
+    });
+    if (!booking) {
+      throw new NotFoundException(`No booking found`);
+    }
+    if (booking.userId !== userId) {
+      throw new ForbiddenException(
+        `You are not authorized to view this booking`,
+      );
+    }
+    return booking;
   }
 }
