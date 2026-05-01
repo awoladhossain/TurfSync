@@ -17,7 +17,7 @@ import { CreateTurfDto } from './dto/create-turf.dto';
 import { QueryTurfDto } from './dto/query-turf.dto';
 import { TurfService } from './turf.service';
 
-@Controller('turf')
+@Controller('turfs')
 export class TurfController {
   constructor(private turfService: TurfService) {}
 

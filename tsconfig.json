@@ -24,5 +24,6 @@
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
     "strictPropertyInitialization": true
-  }
+  },
+  "exclude": ["node_modules", "dist", "load-test.js"]
 }
