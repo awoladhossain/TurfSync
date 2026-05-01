@@ -7,7 +7,6 @@ export class RedisLockService {
   constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
 
   /**
-   *
    * @param key
    * @param ttlSeconds
    * @returns
@@ -55,7 +54,6 @@ export class RedisLockService {
   }
 
   /**
-   *
    * @param key
    * @returns
    * read a value from Redis for the given key. It retrieves the value using the GET command and parses it from a JSON string back to its original form. If the key does not exist in Redis, it returns null.
@@ -68,19 +66,9 @@ export class RedisLockService {
     }
     return JSON.parse(data) as T;
   }
-  /**
-   *
-   * @param key
-   */
   async del(key: string): Promise<void> {
     await this.redis.del(key);
   }
-
-  /**
-   *
-   * @param pattern
-   *
-   */
   async delByPattern(pattern: string): Promise<void> {
     const key = await this.redis.keys(pattern);
     if (key.length > 0) {

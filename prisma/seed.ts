@@ -1,9 +1,21 @@
+import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, SportType } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+import 'dotenv/config';
+import { Pool } from 'pg';
 
-const prisma = new PrismaClient();
+// 🔥 same adapter setup as PrismaService
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error('❌ DATABASE_URL is missing');
+}
+
+const pool = new Pool({ connectionString });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const bcrypt = await import('bcryptjs');
   const passwordHash = await bcrypt.hash('Admin1234', 12);
 
   const admin = await prisma.user.upsert({
@@ -18,8 +30,8 @@ async function main() {
       isVerified: true,
     },
   });
-  console.log('test admin: ', admin);
 
+  console.log(admin);
   const turf = await prisma.turf.upsert({
     where: { id: 'turf-001' },
     update: {},
@@ -36,6 +48,7 @@ async function main() {
     },
   });
 
+  // Today এর slots তৈরি করো
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -71,8 +84,12 @@ async function main() {
 
   console.log('✅ Seed complete!');
   console.log(`Admin: admin@turfbook.com / Admin1234`);
+  console.log('DB URL:', process.env.DATABASE_URL);
 }
 
 main()
   .catch(console.error)
-  .finally(() => prisma.$disconnect());
+  .finally(async () => {
+    await prisma.$disconnect();
+    await pool.end(); // 🔥 important when using adapter
+  });
