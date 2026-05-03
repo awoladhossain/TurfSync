@@ -16,7 +16,7 @@ import { Roles } from '@/common/decorators/roles.decorator';
 import { Role } from '@prisma/client';
 import { RolesGuard } from '@/common/guards/roles.guard';
 
-@Controller('booking')
+@Controller('bookings')
 @UseGuards(JwtAuthGuard)
 export class BookingController {
   constructor(private bookingService: BookingService) {}

@@ -50,7 +50,10 @@ async function main() {
 
   // Today এর slots তৈরি করো
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  today.setUTCHours(0, 0, 0, 0);
+
+  // const targetDate = new Date('2026-04-17');
+  // targetDate.setHours(0, 0, 0, 0);
 
   const timeSlots = [
     { start: '09:00', end: '10:00' },

@@ -129,6 +129,8 @@ export class TurfService {
   async getAvailableSlots(turfId: string, date: string) {
     const cacheKey = `slots:available:${turfId}:${date}`;
 
+    const searchDate = new Date(date);
+    searchDate.setUTCHours(0, 0, 0, 0);
     const cached = await this.redis.get(cacheKey);
     if (cached) {
       return cached;
@@ -142,7 +144,7 @@ export class TurfService {
     const slots = await this.prisma.slot.findMany({
       where: {
         turfId,
-        date: new Date(date),
+        date: searchDate,
       },
       orderBy: { startTime: 'asc' },
     });
