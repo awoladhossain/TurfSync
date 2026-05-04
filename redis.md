@@ -168,3 +168,12 @@ await this.redis.set(key, serialized);
 ```
 
 এটি ডাটাটি পারমানেন্টলি সেভ করে রাখে। যতক্ষণ না আপনি নিজে ডিলিট করছেন বা Redis রিস্টার্ট হচ্ছে, এটি সরবে না।
+
+<!-- write-through, write-back
+spike
+round robbin,least connection
+db replica
+
+data correption, database triger, data history
+local, global, functional, lexical
+ -->
