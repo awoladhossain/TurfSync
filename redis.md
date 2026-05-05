@@ -77,6 +77,21 @@ return client;
 
 ### Deep dive
 
+```bash
+@Injectable()
+export class RedisLockService {
+  constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
+}
+```
+
+সাধারণত NestJS-এ আমরা ক্লাস ইনজেক্ট করি এভাবে: `constructor(private service: MyService) {}`। এখানে MyService নিজেই একটি ক্লাস।
+
+কিন্তু Redis কোনো ক্লাস না, এটি একটি অবজেক্ট বা লাইব্রেরি। NestJS যখন কোনো অবজেক্ট বা ভ্যালুকে ইনজেক্ট করতে চায়, তখন তার একটি "নাম" বা "Identity" লাগে।
+
+`এই @Inject(REDIS_CLIENT) এর মানে হলো:`
+
+`NestJS, তুমি তোমার মেমোরিতে (DI Container) খুঁজে দেখো REDIS_CLIENT নামে কোনো কিছু রেজিস্টার করা আছে কি না। থাকলে সেটার ভ্যালু আমাকে দাও।`
+
 1. `acquireLock`
 
 ```bash
@@ -169,11 +184,21 @@ await this.redis.set(key, serialized);
 
 এটি ডাটাটি পারমানেন্টলি সেভ করে রাখে। যতক্ষণ না আপনি নিজে ডিলিট করছেন বা Redis রিস্টার্ট হচ্ছে, এটি সরবে না।
 
+```bash
+constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
+```
+
+1. ` REDIS_CLIENT`: এটা একটা লেবেল বা নাম।
+2. `@Inject`: এই নাম দিয়ে গুদাম থেকে আসল রেডিস কানেকশনটা খুঁজে বের করে আনার হুক।
+3. `redis: Redis`: কানেকশনটা যে ভেরিয়েবলে জমা হচ্ছে তার নাম এবং টাইপ।
+
+এখন আপনি এই ক্লাসের যেকোনো জায়গায় this.redis.set('key', 'value') লিখলে সেটা সরাসরি ডাটাবেসে চলে যাবে, কারণ @Inject আপনার জন্য কানেকশনটা আগেই এনে রেখেছে।
+
 <!-- write-through, write-back
-spike
-round robbin,least connection
-db replica
+   spike
+   round robbin,least connection
+   db replica
 
 data correption, database triger, data history
 local, global, functional, lexical
- -->
+-->
