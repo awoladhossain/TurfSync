@@ -66,6 +66,7 @@ export class RedisLockService {
     }
     return JSON.parse(data) as T;
   }
+
   async del(key: string): Promise<void> {
     await this.redis.del(key);
   }

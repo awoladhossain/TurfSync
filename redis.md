@@ -202,3 +202,40 @@ constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
 data correption, database triger, data history
 local, global, functional, lexical
 -->
+
+---
+
+```bash
+  async set(key: string, value: any, ttlSeconds?: number): Promise<void> {
+    const serialized = JSON.stringify(value);
+    if (ttlSeconds !== undefined) {
+      await this.redis.setex(key, ttlSeconds, serialized);
+    } else {
+      await this.redis.set(key, serialized);
+    }
+  }
+```
+
+1. রেডিস মূলত স্ট্রিং (String) বা বাইনারি ডাটা বোঝে। আপনি যখন জাভাস্ক্রিপ্টের কোনো অবজেক্ট বা অ্যারে (যেমন: { name: "Soccer Arena", price: 500 }) রেডিসে পাঠাতে চান, তখন সেটিকে সরাসরি সেভ করা যায় না। তাই `JSON.stringify(value)` দিয়ে সেই অবজেক্টটিকে একটি স্ট্রিং-এ রূপান্তর করা হয়। একেই বলে `Serialization`
+
+2. কেন if (ttlSeconds !== undefined) ব্যবহার করা হয়েছে?
+   এখানে কোডটি সিদ্ধান্ত নেয় যে ডাটাটি কি চিরস্থায়ী হবে নাকি নির্দিষ্ট সময় পর ডিলিট হয়ে যাবে। যদি আপনি চান ডাটাটি কিছুক্ষণ পর (যেমন ৬০ সেকেন্ড) মুছে যাক, তবে এটি setex কমান্ড চালায়। এটি একই সাথে ডাটা সেভ করে এবং তার একটি মেয়াদ সেট করে দেয়।
+
+   উদাহরণ: ওটিপি (OTP) বা কোনো সাময়িক টোকেন সেভ করতে এটি কাজে লাগে।
+
+   ttlSeconds না থাকলে (SET): যদি আপনি কোনো নির্দিষ্ট সময় না দেন, তবে এটি সাধারণ set কমান্ড চালায়। এই ডাটাটি ম্যানুয়ালি ডিলিট না করা পর্যন্ত রেডিসে থেকে যাবে।
+
+```bash
+  async get<T>(key: string): Promise<T | null> {
+    const data = await this.redis.get(key);
+    if (!data) {
+      return null;
+    }
+    return JSON.parse(data) as T;
+  }
+```
+
+1. এখানে <T> হলো একটি Generic Type। এর মানে হলো, আপনি যখন এই মেথডটি কল করবেন, তখন আপনি বলে দিতে পারবেন আপনি কোন ধরণের ডাটা আশা করছেন (যেমন: User, Turf, বা Array)। এটি টাইপস্ক্রিপ্টে কোড লেখার সময় আপনাকে অটো-কমপ্লিশন এবং এরর চেক করতে সাহায্য করে।
+
+2. এটি রেডিস ডাটাবেসে ওই নির্দিষ্ট key দিয়ে সার্চ করে। যদি রেডিসে ওই নামে কিছু থাকে, তবে সে সেটি একটি JSON String হিসেবে নিয়ে আসে।
+3. যদি রেডিসে ওই চাবি বা key-র বিপরীতে কোনো ডাটা না পাওয়া যায় (হয়তো ডাটাটি আগে কখনো সেভ করা হয়নি অথবা তার মেয়াদ শেষ হয়ে ডিলিট হয়ে গেছে), তবে এটি সরাসরি null রিটার্ন করে।
