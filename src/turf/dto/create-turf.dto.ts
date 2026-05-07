@@ -9,6 +9,7 @@ import {
   IsString,
   Matches,
   Min,
+  MinLength,
 } from 'class-validator';
 
 export class CreateTurfDto {
@@ -17,6 +18,7 @@ export class CreateTurfDto {
   name!: string;
 
   @IsString()
+  @MinLength(10, { message: 'Description must be at least 10 characters long' })
   @IsNotEmpty()
   description!: string;
 
@@ -47,6 +49,7 @@ export class CreateTurfDto {
   closeTime!: string;
 
   @IsArray()
+  @IsString({ each: true })
   @IsOptional()
   images?: string[];
 }
