@@ -31,7 +31,7 @@ export class TurfService {
     return turf;
   }
 
-  // find all
+  // find all - Cache-Aside Pattern
   async findAll(query: QueryTurfDto) {
     const { city, sportType, search, page = 1, limit = 10 } = query;
     // cache key
@@ -77,7 +77,7 @@ export class TurfService {
     return result;
   }
 
-  // find one by id
+  // find one by id - Cache-Aside Pattern
   async findOne(id: string) {
     const cacheKey = `turf:${id}`;
     const cached = await this.redis.get(cacheKey);
