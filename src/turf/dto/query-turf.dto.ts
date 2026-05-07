@@ -1,6 +1,13 @@
 import { SportType } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export class QueryTurfDto {
   @IsOptional()
@@ -13,6 +20,7 @@ export class QueryTurfDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   search?: string;
 
   @IsOptional()
@@ -26,4 +34,8 @@ export class QueryTurfDto {
   @IsInt()
   @Min(1)
   limit?: number = 10;
+
+  @IsOptional()
+  @IsEnum(['asc', 'desc'])
+  sortOrder?: 'asc' | 'desc' = 'asc';
 }
