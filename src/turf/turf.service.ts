@@ -1,17 +1,29 @@
 import { PrismaService } from '@/prisma/prisma.service';
 import { RedisLockService } from '@/redis/redis-lock.service';
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
 import { CreateTurfDto } from './dto/create-turf.dto';
 import { QueryTurfDto } from './dto/query-turf.dto';
 
 @Injectable()
 export class TurfService {
+  private readonly logger = new Logger(TurfService.name);
   constructor(
     private prisma: PrismaService,
     private redis: RedisLockService,
   ) {}
 
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async handleDailySlotGeneration() {
+    this.logger.log('Starting daily slot generation task');
+
+    const activeTurfs = await this.prisma.turf.findMany({
+      where: { isActive: true },
+    });
+
+    const today = new Date();
+  }
   // create - with duplicate check and cache invalidation
   async create(dto: CreateTurfDto) {
     const existingTurf = await this.prisma.turf.findFirst({
