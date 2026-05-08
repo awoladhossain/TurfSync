@@ -12,6 +12,7 @@ export class TurfService {
     private redis: RedisLockService,
   ) {}
 
+  // create - with duplicate check and cache invalidation
   async create(dto: CreateTurfDto) {
     const existingTurf = await this.prisma.turf.findFirst({
       where: {
@@ -125,16 +126,19 @@ export class TurfService {
     await this.redis.delByPattern(`turf:list:*`);
     return { message: `Turf with id "${id}" has been removed.` };
   }
-  // available turfs for a given time range
+
+  // available turfs for a given time range - Cache-Aside Pattern
   async getAvailableSlots(turfId: string, date: string) {
     const cacheKey = `slots:available:${turfId}:${date}`;
 
     const searchDate = new Date(date);
     searchDate.setUTCHours(0, 0, 0, 0);
+
     const cached = await this.redis.get(cacheKey);
     if (cached) {
       return cached;
     }
+
     const turf = await this.prisma.turf.findUnique({
       where: { id: turfId },
     });
@@ -149,7 +153,7 @@ export class TurfService {
       orderBy: { startTime: 'asc' },
     });
     const result = { turf, slots, date };
-    await this.redis.set(cacheKey, result, 60);
+    await this.redis.set(cacheKey, result, 60); // cache for 1 minute
     return result;
   }
 }
