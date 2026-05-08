@@ -23,6 +23,56 @@ export class TurfService {
     });
 
     const today = new Date();
+    for (const turf of activeTurfs) {
+      for (let i = 0; i < 7; i++) {
+        const targetDate = new Date(today);
+        targetDate.setDate(today.getDate() + i);
+        targetDate.setUTCHours(0, 0, 0, 0);
+        await this.generateSlotsForDate(turf.id, targetDate);
+      }
+    }
+
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    await this.prisma.slot.deleteMany({
+      where: {
+        date: {
+          lt: thirtyDaysAgo,
+        },
+      },
+    });
+    this.logger.log('slot generation and cleanup completed');
+  }
+
+  async generateSlotsForDate(turfId: string, date: Date) {
+    const turf = await this.prisma.turf.findUnique({ where: { id: turfId } });
+    if (!turf) return;
+
+    let currentHour = parseInt(turf.openTime.split(':')[0]);
+    const endHour = parseInt(turf.closeTime.split(':')[0]);
+
+    while (currentHour < endHour) {
+      const startTime = `${currentHour.toString().padStart(2, '0')}:00`;
+      const endTime = `${(currentHour + 1).toString().padStart(2, '0')}:00`;
+
+      await this.prisma.slot.upsert({
+        where: {
+          turfId_date_startTime: {
+            turfId,
+            date,
+            startTime,
+          },
+        },
+        update: {},
+        create: {
+          turfId,
+          date,
+          startTime,
+          endTime,
+        },
+      });
+      currentHour++;
+    }
   }
   // create - with duplicate check and cache invalidation
   async create(dto: CreateTurfDto) {
