@@ -90,6 +90,14 @@ export class TurfService {
     const turf = await this.prisma.turf.create({
       data: dto,
     });
+
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    for (let i = 0; i < 7; i++) {
+      const targetDate = new Date(today);
+      targetDate.setDate(targetDate.getDate() + i);
+      await this.generateSlotsForDate(turf.id, targetDate);
+    }
     await this.redis.delByPattern(`turf:list:*`);
     return turf;
   }
