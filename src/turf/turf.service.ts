@@ -14,24 +14,32 @@ export class TurfService {
     private redis: RedisLockService,
   ) {}
 
+  // cron job to generate slots for next 7 days everyday at midnight and delete old slots older than 30 days
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleDailySlotGeneration() {
     this.logger.log('Starting daily slot generation task');
 
+    // 1. active turfs find out from the db
     const activeTurfs = await this.prisma.turf.findMany({
       where: { isActive: true },
     });
 
-    const today = new Date();
+    const today = new Date(); // today date example: 2024-06-01
+    today.setUTCHours(0, 0, 0, 0); // set time to 00:00:00 for accurate date comparison
+
     for (const turf of activeTurfs) {
+      // 2. loop over active turfs and generate slots for next 7 days
       for (let i = 0; i < 7; i++) {
-        const targetDate = new Date(today);
-        targetDate.setDate(today.getDate() + i);
-        targetDate.setUTCHours(0, 0, 0, 0);
+        const targetDate = new Date(today); // create a copy of today's date for each iteration example: 2024-06-01
+        targetDate.setDate(today.getDate() + i); // add i days to today's date example: 2024-06-01 + 1 => 2024-06-02, 2024-06-01 + 2 => 2024-06-03
+        targetDate.setUTCHours(0, 0, 0, 0); // set time to 00:00:00 for accurate date comparison and UTC consistency example: 2024-06-02 00:00:00
+
+        // 3. generate slots for that turf and date
         await this.generateSlotsForDate(turf.id, targetDate);
       }
     }
 
+    // 4. delete slots older than 30 days
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     await this.prisma.slot.deleteMany({
@@ -45,16 +53,23 @@ export class TurfService {
   }
 
   async generateSlotsForDate(turfId: string, date: Date) {
+    // 1. find out the turf from the db
     const turf = await this.prisma.turf.findUnique({ where: { id: turfId } });
-    if (!turf) return;
+    if (!turf) return; // turf not found, skip
 
-    let currentHour = parseInt(turf.openTime.split(':')[0]);
-    const endHour = parseInt(turf.closeTime.split(':')[0]);
+    // 2. open and close time, get the hours and generate slots for that date
+    // example: '09:00' => ['09', '00'] -> parseInt('09') => 9
+    let currentHour = parseInt(turf.openTime.split(':')[0]); // cyrrent hour = 9
+    const endHour = parseInt(turf.closeTime.split(':')[0]); //end hour = 12
 
+    // 3. create slots by looping from open hour to close hour
     while (currentHour < endHour) {
-      const startTime = `${currentHour.toString().padStart(2, '0')}:00`;
-      const endTime = `${(currentHour + 1).toString().padStart(2, '0')}:00`;
+      // 4. startTime and endtime wise slot creation (padstart with 0 if single digit)
+      // example: 9 => '09:00', 10 => '10:00'
+      const startTime = `${currentHour.toString().padStart(2, '0')}:00`; // '09:00'
+      const endTime = `${(currentHour + 1).toString().padStart(2, '0')}:00`; // '10:00'
 
+      // 5. check if slot already exists for that turf, date and startTime, if not create it (upsert)
       await this.prisma.slot.upsert({
         where: {
           turfId_date_startTime: {
@@ -62,16 +77,16 @@ export class TurfService {
             date,
             startTime,
           },
-        },
-        update: {},
+        }, // unique constraint on turfId + date + startTime
+        update: {}, // if exists do nothing
         create: {
           turfId,
           date,
           startTime,
           endTime,
-        },
+        }, // if not exists create new slot
       });
-      currentHour++;
+      currentHour++; // move to next hour example: 9 => 10 => 11
     }
   }
 
@@ -92,11 +107,13 @@ export class TurfService {
       data: dto,
     });
 
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
+    // generate slots for next 7 days for the newly created turf
+    const today = new Date(); // get today's date
+    today.setUTCHours(0, 0, 0, 0); // set time to 00:00:00 for accurate date comparison and UTC consistency
     for (let i = 0; i < 7; i++) {
       const targetDate = new Date(today);
       targetDate.setDate(targetDate.getDate() + i);
+      // for this turf generate slots
       await this.generateSlotsForDate(turf.id, targetDate);
     }
     await this.redis.delByPattern(`turf:list:*`);
