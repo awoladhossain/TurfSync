@@ -1,6 +1,6 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, SportType } from '@prisma/client';
-import bcrypt from 'bcryptjs';
+import * as argon2 from 'argon2';
 import 'dotenv/config';
 import { Pool } from 'pg';
 
@@ -16,7 +16,12 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const passwordHash = await bcrypt.hash('Admin1234', 12);
+  const passwordHash = await argon2.hash('Admin1234', {
+    type: argon2.argon2id,
+    memoryCost: 65536,
+    timeCost: 3,
+    parallelism: 1,
+  });
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@turfbook.com' },
