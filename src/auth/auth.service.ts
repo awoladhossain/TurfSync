@@ -21,7 +21,7 @@ export class AuthService {
     private configService: ConfigService,
   ) {}
 
-  // ১. রেজিস্ট্রেশন মেথড
+  // 1. register method
   async register(dto: RegisterDto) {
     const existingUser = await this.prisma.user.findFirst({
       where: {
@@ -65,7 +65,7 @@ export class AuthService {
     return { user, ...tokens };
   }
 
-  // ২. লগইন মেথড
+  // 2. login method
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -91,9 +91,9 @@ export class AuthService {
     return { user: userWithoutPassword, ...tokens };
   }
 
-  // ৩. রিফ্রেশ টোকেন (এখানে হাশ চেক করা জরুরি)
+  // 3. refresh token (this requires hashing for security)
   async refreshTokens(userId: string, oldRefreshToken: string) {
-    // ডাটাবেসে চেক করার আগে ইনকামিং টোকেনটিকে হাশ করে নিতে হবে
+    // hash the incoming refresh token before checking the database
     const hashedOldToken = this.hashToken(oldRefreshToken);
 
     const storedToken = await this.prisma.refreshToken.findFirst({
@@ -102,7 +102,7 @@ export class AuthService {
 
     if (!storedToken) throw new UnauthorizedException('Invalid Refresh Token');
 
-    // পুরনো টোকেন মুছে ফেলুন
+    // delete the old refresh token
     await this.prisma.refreshToken.delete({ where: { id: storedToken.id } });
 
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
@@ -111,7 +111,7 @@ export class AuthService {
     return this.generateTokens(user.id, user.email, user.role);
   }
 
-  // ৪. লগআউট (এখানেও হাশ চেক করা হবে)
+  // 4. logout (this also requires hashing for security)
   async logout(userId: string, refreshToken: string) {
     const hashedToken = this.hashToken(refreshToken);
     await this.prisma.refreshToken.deleteMany({
@@ -140,12 +140,12 @@ export class AuthService {
     });
   }
 
-  // ৫. টোকেন হাশ করার প্রাইভেট মেথড
+  // 5. token hashing private method
   private hashToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
   }
 
-  // ৬. টোকেন জেনারেট করার মেথড (হাশ স্টোরিং সহ)
+  // 6. tokens generate private method
   private async generateTokens(userId: string, email: string, role: string) {
     const payload = { sub: userId, email, role };
 
@@ -159,7 +159,7 @@ export class AuthService {
       expiresIn: this.configService.get('JWT_REFRESH_EXPIRES_IN'),
     });
 
-    // ডাটাবেসে সেভ করার আগে হাশ করে নিচ্ছি
+    // before storing the refresh token, hash it
     const hashedToken = this.hashToken(refreshToken);
 
     const expiresAt = new Date();
@@ -173,6 +173,6 @@ export class AuthService {
       },
     });
 
-    return { accessToken, refreshToken }; // ইউজারকে প্লেইন টোকেন দিচ্ছি
+    return { accessToken, refreshToken }; // give the original refresh token to the client, not the hashed one
   }
 }
