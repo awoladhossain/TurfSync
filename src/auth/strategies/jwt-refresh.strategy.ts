@@ -2,6 +2,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
+import { createHash } from 'crypto';
 import { Request } from 'express';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { JwtPayload } from './jwt.strategy';
@@ -32,8 +33,12 @@ export class JwtRefreshStrategy extends PassportStrategy(
         'Refresh token is missing in request body',
       );
     }
+
+    // hash the refresh token before comparing with the database
+    const hashedToken = createHash('sha256').update(refreshToken).digest('hex');
+
     const tokenRecord = await this.prisma.refreshToken.findUnique({
-      where: { token: refreshToken },
+      where: { token: hashedToken },
       include: { user: true },
     });
 
@@ -43,7 +48,7 @@ export class JwtRefreshStrategy extends PassportStrategy(
 
     return {
       ...tokenRecord.user,
-      refreshToken,
+      refreshToken, // plain token will be deleted on logout
     };
   }
 }
