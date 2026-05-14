@@ -37,6 +37,7 @@ export class JwtRefreshStrategy extends PassportStrategy(
     // hash the refresh token before comparing with the database
     const hashedToken = createHash('sha256').update(refreshToken).digest('hex');
 
+    // hash database lookup for the refresh token
     const tokenRecord = await this.prisma.refreshToken.findUnique({
       where: { token: hashedToken },
       include: { user: true },
