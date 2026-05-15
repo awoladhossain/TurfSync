@@ -61,10 +61,10 @@ export class BookingService {
         async (tx) => {
           // for update - locking the slot row
           const slots = await tx.$queryRaw<any[]>`
-        SELECT s.*, t."pricePerHour", t."isActive", t.name as "turfName",  t.address as "turfAddress" 
-        FROM slots s 
+        SELECT s.*, t."pricePerHour", t."isActive", t.name as "turfName",  t.address as "turfAddress"
+        FROM slots s
         JOIN turfs t ON s."turfId" = t.id
-        WHERE s.id = ${dto.slotId} 
+        WHERE s.id = ${dto.slotId}
         AND s."turfId" = ${dto.turfId}
         FOR UPDATE
         `;

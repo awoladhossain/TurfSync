@@ -58,6 +58,8 @@ model RefreshToken {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId]) // for faster lookups of refresh tokens by user
+  @@index([expiresAt]) // for faster cleanup of expired tokens
   @@map("refresh_tokens")
 }
 
@@ -94,6 +96,8 @@ model Slot {
   booking Booking?
 
   @@unique([turfId, date, startTime]) // ensures that a turf cannot have two slots at the same time on the same date
+  @@index([turfId, date]) // for faster lookups of available slots by turf and date
+  @@index([isBooked]) // for faster lookups of available slots
   @@map("slots")
 }
 
@@ -114,6 +118,9 @@ model Booking {
   slot    Slot     @relation(fields: [slotId], references: [id])
   payment Payment?
 
+  @@index([userId, createdAt]) // for faster lookups of a user's bookings
+  @@index([turfId, status]) // for faster lookups of bookings by turf and status
+  @@index([status]) // for faster lookups of bookings by status
   @@map("bookings")
 }
 
