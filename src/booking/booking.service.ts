@@ -29,96 +29,133 @@ export class BookingService {
   ) {}
 
   async create(dto: CreateBookingDto, userId: string) {
-    const lockKey = `slot:${dto.slotId}`;
+    //  validation : past date check
+    const bookingDate = new Date(dto.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    const lockAcquired = await this.redis.acquireLock(lockKey, 30);
-    if (!lockAcquired) {
-      throw new ConflictException(
-        `Slot ${dto.slotId} is currently being booked by another user. Please try again later.`,
+    if (bookingDate < today) {
+      throw new BadRequestException(`Cannot book for past dates`);
+    }
+
+    //  validation: max 30 days advance
+    const maxDate = new Date();
+    maxDate.setDate(maxDate.getDate() + 30);
+
+    if (bookingDate > maxDate) {
+      throw new BadRequestException(`Cannot book more than 30 days in advance`);
+    }
+
+    // redis lock - (lua-backed)
+    const lockKey = `slot:${dto.slotId}`;
+    const lockValue = await this.redis.acquireLock(lockKey, 30);
+    if (!lockValue) {
+      throw new BadRequestException(
+        `Slot is currently being booked by another user. Please try again.`,
       );
     }
+
     try {
-      const slot = await this.prisma.slot.findUnique({
-        where: {
-          id: dto.slotId,
+      // db transaction with  pessimistic locking
+      const booking = await this.prisma.$transaction(
+        async (tx) => {
+          // for update - locking the slot row
+          const slots = await tx.$queryRaw<any[]>`
+        SELECT s.*, t."pricePerHour", t."isActive", t.name as "turfName",  t.address as "turfAddress" 
+        FROM slots s 
+        JOIN turfs t ON s."turfId" = t.id
+        WHERE s.id = ${dto.slotId} 
+        AND s."turfId" = ${dto.turfId}
+        FOR UPDATE
+        `;
+
+          if (slots.length === 0) {
+            throw new NotFoundException(`Slot not found for the given turf`);
+          }
+          const slot = slots[0];
+
+          if (!slot.isActive) {
+            throw new BadRequestException(`Turf is not active for booking`);
+          }
+
+          if (slot.isBooked) {
+            throw new BadRequestException(`Slot is already booked`);
+          }
+
+          // same user cannot book same slot multiple times
+          const existingBooking = await tx.booking.findFirst({
+            where: {
+              userId,
+              slotId: dto.slotId,
+              status: { not: BookingStatus.CANCELLED },
+            },
+          });
+
+          if (existingBooking) {
+            throw new ConflictException(`You have already booked this slot`);
+          }
+
+          // slot marked as booked
+          await tx.slot.update({
+            where: { id: dto.slotId },
+            data: { isBooked: true },
+          });
+
+          // booking record created
+          return await tx.booking.create({
+            data: {
+              userId,
+              turfId: dto.turfId,
+              slotId: dto.slotId,
+              totalAmount: slot.pricePerHour,
+              notes: dto.notes,
+              status: BookingStatus.CONFIRMED,
+            },
+            include: {
+              user: {
+                select: { id: true, name: true, email: true, phone: true },
+              },
+              turf: { select: { id: true, name: true, address: true } },
+              slot: true,
+            },
+          });
         },
-        include: { turf: true },
-      });
-      if (!slot) {
-        throw new NotFoundException(`Slot with id ${dto.slotId} not found`);
-      }
-      if (slot.turfId !== dto.turfId) {
-        throw new BadRequestException(
-          'Slot does not belong to the specified turf',
-        );
-      }
+        { timeout: 8000 },
+      ); // 8 seconds transaction timeout
 
-      if (slot.isBooked) {
-        throw new ConflictException('Slot is already booked');
-      }
-      // DB transaction atomic operation
-      const booking = await this.prisma.$transaction(async (tx) => {
-        // slot booked mark
-        await tx.slot.update({
-          where: { id: dto.slotId },
-          data: { isBooked: true },
-        });
-        // booking create
-        return tx.booking.create({
-          data: {
-            userId,
-            turfId: dto.turfId,
-            slotId: dto.slotId,
-            totalAmount: slot.turf.pricePerHour,
-            notes: dto.notes,
-            status: BookingStatus.CONFIRMED,
-          },
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-            turf: {
-              select: {
-                id: true,
-                name: true,
-                address: true,
-              },
-            },
-            slot: true,
-          },
-        });
-      });
-
-      //  slot availability cache clear
+      // cache invalidate
       await this.redis.delByPattern(`slots:available:${dto.turfId}:*`);
-      // background job for sending notification
-      await this.notificationQueue.add(
-        BOOKING_CONFIRMED_JOB,
-        {
-          booking: {
-            id: booking.id,
-            date: dto.date,
-            startTime: slot.startTime,
+
+      // notification queue
+      try {
+        await this.notificationQueue.add(
+          BOOKING_CONFIRMED_JOB,
+          {
+            booking: {
+              id: booking.id,
+              date: dto.date,
+              startTime: booking.slot.startTime,
+            },
+            user: booking.user,
+            turf: booking.turf,
           },
-          user: booking.user,
-          turf: booking.turf,
-        },
-        {
-          attempts: 3,
-          backoff: 5000,
-          removeOnComplete: true,
-        },
-      );
-      this.logger.log(
-        `Booking ${booking.id} created for user ${userId} on slot ${dto.slotId}`,
-      );
-      return booking;
+          {
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 5000 },
+            removeOnComplete: true,
+            removeOnFail: false, // if failed, keep it for investigation
+          },
+        );
+      } catch (notifError) {
+        this.logger.error(
+          `Notification queue failed for booking creation`,
+          notifError,
+        );
+        this.logger.log(`Booking created: ${booking.id} by user: ${userId}`);
+        return booking;
+      }
     } finally {
-      await this.redis.releaseLock(lockKey);
+      await this.redis.releaseLock(lockKey, lockValue);
     }
   }
 
