@@ -1,79 +1,126 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import Redis from 'ioredis';
+import { v4 as uuidv4 } from 'uuid';
 import { REDIS_CLIENT } from './redis.constants';
 
 @Injectable()
 export class RedisLockService {
+  private readonly logger = new Logger(RedisLockService.name);
   constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
 
-  /**
-   * @param key
-   * @param ttlSeconds
-   * @returns
-   * Attempts to acquire a lock for the given key with a specified TTL (time-to-live) in seconds.
-   * It uses the Redis SET command with NX (set if not exists) and EX (expire) options to ensure that the lock is only acquired if it doesn't already exist and that it expires after the specified time.
-   * The method returns true if the lock was successfully acquired, and false otherwise.
-   */
-  async acquireLock(key: string, ttlSeconds = 30): Promise<boolean> {
+  private readonly RELEASE_LOCK_SCRIPT = `
+  if redis.call('get', KEYS[1]) == ARGV[1] then
+    return redis.call('del', KEYS[1])
+  else
+    return 0
+  end
+  `;
+
+  private readonly EXTEND_LOCK_SCRIPT = `
+  if redis.call('get', KEYS[1]) == ARGV[1] then
+    return redis.call('expire', KEYS[1], ARGV[2])
+  else
+    return 0
+  end
+  `;
+
+  async acquireLock(key: string, ttlSeconds = 30): Promise<string | null> {
+    // unique value - for per lock its unique, so that only the owner can release it
+    const lockValue = uuidv4();
+
     const result = await this.redis.set(
-      `lock: ${key}`,
-      '1',
+      `lock:${key}`,
+      lockValue,
       'EX',
       ttlSeconds,
       'NX',
     );
-    return result === 'OK';
+
+    return result === 'OK' ? lockValue : null;
   }
 
-  /**
-   * Releases a lock for the given key.
-   * It uses the Redis DEL command to remove the lock from the Redis database.
-   * The method returns true if the lock was successfully released, and false otherwise.
-   */
+  // Optimistic Locking -
+  async releaseLock(key: string, lockValue: string): Promise<boolean> {
+    const result = (await this.redis.eval(
+      this.RELEASE_LOCK_SCRIPT,
+      1, // number of keys
+      `lock:${key}`, // KEYS[1]
+      lockValue, // ARGV[1]
+    )) as number;
 
-  async releaseLock(key: string): Promise<void> {
-    await this.redis.del(`lock: ${key}`);
+    return result === 1;
   }
 
-  /**
-   * Sets a value in Redis with an optional TTL.
-   * @param key
-   * @param value
-   * @param ttlSeconds
-   * @returns
-   * The method takes a key, a value, and an optional TTL (time-to-live) in seconds. It serializes the value to a JSON string and stores it in Redis using the SET command. If a TTL is provided, it uses the SETEX command to set the value with an expiration time. If no TTL is provided, it simply sets the value without an expiration.
-   * The method returns a Promise that resolves when the value is set in Redis.
-   */
+  async extendLock(
+    key: string,
+    lockValue: string,
+    ttlSeconds = 30,
+  ): Promise<boolean> {
+    const result = (await this.redis.eval(
+      this.EXTEND_LOCK_SCRIPT,
+      1,
+      `lock:${key}`,
+      lockValue,
+      ttlSeconds,
+    )) as number;
+
+    return result === 1;
+  }
+
+  // ─── Cache methods
   async set(key: string, value: any, ttlSeconds?: number): Promise<void> {
-    const serialized = JSON.stringify(value);
-    if (ttlSeconds !== undefined) {
-      await this.redis.setex(key, ttlSeconds, serialized);
-    } else {
-      await this.redis.set(key, serialized);
+    try {
+      const serialized = JSON.stringify(value);
+
+      if (ttlSeconds) {
+        // SETEX = SET with EXpire
+        await this.redis.setex(key, ttlSeconds, serialized);
+      } else {
+        await this.redis.set(key, serialized);
+      }
+    } catch (error) {
+      this.logger.error(`Error serializing data for key: ${key}`, error);
+      throw error;
     }
   }
-
-  /**
-   * @param key
-   * @returns
-   * read a value from Redis for the given key. It retrieves the value using the GET command and parses it from a JSON string back to its original form. If the key does not exist in Redis, it returns null.
-   */
 
   async get<T>(key: string): Promise<T | null> {
-    const data = await this.redis.get(key);
-    if (!data) {
+    try {
+      const data = await this.redis.get(key);
+      if (!data) return null;
+      return JSON.parse(data) as T;
+    } catch (error) {
+      this.logger.error(`Error parsing JSON for key: ${key}`, error);
       return null;
     }
-    return JSON.parse(data) as T;
   }
 
   async del(key: string): Promise<void> {
     await this.redis.del(key);
   }
+
   async delByPattern(pattern: string): Promise<void> {
-    const key = await this.redis.keys(pattern);
-    if (key.length > 0) {
-      await this.redis.del(...key);
-    }
+    let cursor = '0';
+
+    do {
+      // database scan - to find keys matching the pattern
+      const [nextCursor, keys] = await this.redis.scan(
+        cursor,
+        'MATCH',
+        pattern,
+        'COUNT',
+        100,
+      );
+      cursor = nextCursor;
+
+      if (keys.length > 0) {
+        const pipeline = this.redis.pipeline();
+        pipeline.del(...keys);
+        await pipeline.exec();
+        this.logger.log(
+          `Deleted ${keys.length} keys matching pattern: ${pattern}`,
+        );
+      }
+    } while (cursor !== '0');
   }
 }
