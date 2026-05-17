@@ -1,3 +1,4 @@
+import { BullModule } from '@nestjs/bull';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
@@ -31,6 +32,14 @@ import { TurfModule } from './turf/turf.module';
         limit: 100,
       },
     ]),
+    BullModule.forRootAsync({
+      useFactory: () => ({
+        redis: {
+          host: process.env.REDIS_HOST || 'localhost',
+          port: parseInt(process.env.REDIS_PORT || '6379'),
+        },
+      }),
+    }),
     ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,

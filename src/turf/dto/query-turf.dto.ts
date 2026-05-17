@@ -1,15 +1,8 @@
+import { PaginationDto } from '@/common/dto/pagination.dto';
 import { SportType } from '@prisma/client';
-import { Type } from 'class-transformer';
-import {
-  IsEnum,
-  IsInt,
-  IsOptional,
-  IsString,
-  MaxLength,
-  Min,
-} from 'class-validator';
+import { IsEnum, IsOptional, IsString } from 'class-validator';
 
-export class QueryTurfDto {
+export class QueryTurfDto extends PaginationDto {
   @IsOptional()
   @IsString()
   city?: string;
@@ -20,22 +13,5 @@ export class QueryTurfDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(50)
   search?: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number = 1;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  limit?: number = 10;
-
-  @IsOptional()
-  @IsEnum(['asc', 'desc'])
-  sortOrder?: 'asc' | 'desc' = 'asc';
 }

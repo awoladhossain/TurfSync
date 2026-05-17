@@ -16,6 +16,7 @@ async function bootstrap() {
   // global prefix for all routes
   app.setGlobalPrefix('api');
   app.useGlobalFilters(new GlobalExceptionFilter());
+
   // validation pipe for all incoming requests
   app.useGlobalPipes(
     new ValidationPipe({
@@ -26,7 +27,11 @@ async function bootstrap() {
   );
 
   // cors configuration
-  app.enableCors();
+  app.enableCors({
+    origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
+    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    credentials: true,
+  });
   const port = process.env.PORT || 3000;
   await app.listen(port);
   console.log(`TurfBook running on: http://localhost:${port}/api`);
