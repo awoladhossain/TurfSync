@@ -14,10 +14,30 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { BookingStatus } from '@prisma/client';
+import { BookingStatus, Prisma } from '@prisma/client';
 import type { Queue } from 'bull';
 import { CreateBookingDto } from './dto/create-booking.dto';
 
+interface SlotWithTurfDetails {
+  id: string;
+  turfId: string;
+  date: Date;
+  startTime: string;
+  endTime: string;
+  isBooked: boolean;
+  pricePerHour: number | Prisma.Decimal;
+  isActive: boolean;
+  turfName: string;
+  turfAddress: string;
+}
+
+type BookingWithIncludes = Prisma.BookingGetPayload<{
+  include: {
+    user: { select: { id: true; name: true; email: true; phone: true } };
+    turf: { select: { id: true; name: true; address: true } };
+    slot: true;
+  };
+}>;
 @Injectable()
 export class BookingService {
   private readonly logger = new Logger(BookingService.name);
@@ -28,8 +48,11 @@ export class BookingService {
     @InjectQueue(NOTIFICATION_QUEUE) private notificationQueue: Queue,
   ) {}
 
-  async create(dto: CreateBookingDto, userId: string) {
-    //  validation : past date check
+  async create(
+    dto: CreateBookingDto,
+    userId: string,
+  ): Promise<BookingWithIncludes> {
+    // validation : past date check
     const bookingDate = new Date(dto.date);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -38,7 +61,7 @@ export class BookingService {
       throw new BadRequestException(`Cannot book for past dates`);
     }
 
-    //  validation: max 30 days advance
+    // validation: max 30 days advance
     const maxDate = new Date();
     maxDate.setDate(maxDate.getDate() + 30);
 
@@ -55,23 +78,26 @@ export class BookingService {
       );
     }
 
+    // 🛠️ FIX 1: variable type had been declared as BookingWithIncludes | null
+    let confirmedBooking: BookingWithIncludes | null = null;
+
     try {
-      // db transaction with  pessimistic locking
-      const booking = await this.prisma.$transaction(
+      // db transaction with pessimistic locking
+      confirmedBooking = await this.prisma.$transaction(
         async (tx) => {
-          // for update - locking the slot row
-          const slots = await tx.$queryRaw<any[]>`
-        SELECT s.*, t."pricePerHour", t."isActive", t.name as "turfName",  t.address as "turfAddress"
-        FROM slots s
-        JOIN turfs t ON s."turfId" = t.id
-        WHERE s.id = ${dto.slotId}
-        AND s."turfId" = ${dto.turfId}
-        FOR UPDATE
-        `;
+          const slots = await tx.$queryRaw<SlotWithTurfDetails[]>`
+            SELECT s.*, t."pricePerHour", t."isActive", t.name as "turfName", t.address as "turfAddress"
+            FROM slots s
+            JOIN turfs t ON s."turfId" = t.id
+            WHERE s.id = ${dto.slotId}
+            AND s."turfId" = ${dto.turfId}
+            FOR UPDATE
+          `;
 
           if (slots.length === 0) {
             throw new NotFoundException(`Slot not found for the given turf`);
           }
+
           const slot = slots[0];
 
           if (!slot.isActive) {
@@ -82,7 +108,6 @@ export class BookingService {
             throw new BadRequestException(`Slot is already booked`);
           }
 
-          // same user cannot book same slot multiple times
           const existingBooking = await tx.booking.findFirst({
             where: {
               userId,
@@ -95,13 +120,11 @@ export class BookingService {
             throw new ConflictException(`You have already booked this slot`);
           }
 
-          // slot marked as booked
           await tx.slot.update({
             where: { id: dto.slotId },
             data: { isBooked: true },
           });
 
-          // booking record created
           return await tx.booking.create({
             data: {
               userId,
@@ -121,10 +144,15 @@ export class BookingService {
           });
         },
         { timeout: 8000 },
-      ); // 8 seconds transaction timeout
+      );
 
       // cache invalidate
       await this.redis.delByPattern(`slots:available:${dto.turfId}:*`);
+
+      // 🛠️ FIX 2: type guard/safety check—ensure confirmedBooking actually has data
+      if (!confirmedBooking) {
+        throw new BadRequestException('Booking could not be finalized.');
+      }
 
       // notification queue
       try {
@@ -132,18 +160,18 @@ export class BookingService {
           BOOKING_CONFIRMED_JOB,
           {
             booking: {
-              id: booking.id,
+              id: confirmedBooking.id,
               date: dto.date,
-              startTime: booking.slot.startTime,
+              startTime: confirmedBooking.slot.startTime,
             },
-            user: booking.user,
-            turf: booking.turf,
+            user: confirmedBooking.user,
+            turf: confirmedBooking.turf,
           },
           {
             attempts: 3,
             backoff: { type: 'exponential', delay: 5000 },
             removeOnComplete: true,
-            removeOnFail: false, // if failed, keep it for investigation
+            removeOnFail: false,
           },
         );
       } catch (notifError) {
@@ -151,9 +179,12 @@ export class BookingService {
           `Notification queue failed for booking creation`,
           notifError,
         );
-        this.logger.log(`Booking created: ${booking.id} by user: ${userId}`);
-        return booking;
       }
+
+      this.logger.log(
+        `Booking created: ${confirmedBooking.id} by user: ${userId}`,
+      );
+      return confirmedBooking;
     } finally {
       await this.redis.releaseLock(lockKey, lockValue);
     }
