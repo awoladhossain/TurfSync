@@ -160,25 +160,30 @@ export class BookingService {
   }
 
   // find my bookings
-  async findMyBookings(userId: string) {
-    const result = await this.prisma.booking.findMany({
-      where: {
-        userId,
-      },
-      include: {
-        turf: { select: { id: true, name: true, address: true, city: true } },
-        slot: true,
-        payment: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-    return result;
+  async findMyBookings(userId: string, page = 1, limit = 10) {
+    const skip = (page - 1) * limit;
+    const [bookings, total] = await Promise.all([
+      this.prisma.booking.findMany({
+        where: { userId },
+        include: {
+          turf: { select: { id: true, name: true, address: true, city: true } },
+          slot: true,
+          payment: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.booking.count({ where: { userId } }),
+    ]);
+    return {
+      data: bookings,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   // find one
-  async findOne(id: string, userId: string) {
+  async findOne(id: string, userId: string, userRole: string) {
     const booking = await this.prisma.booking.findUnique({
       where: { id },
       include: {
@@ -191,7 +196,7 @@ export class BookingService {
     if (!booking) {
       throw new NotFoundException(`No booking found`);
     }
-    if (booking.userId !== userId) {
+    if (userRole !== 'ADMIN' && booking.userId !== userId) {
       throw new ForbiddenException(
         `You are not authorized to view this booking`,
       );
@@ -234,15 +239,18 @@ export class BookingService {
     await this.redis.delByPattern(`slots:available:${booking.turfId}:*`);
 
     // cancellation notification job
-    await this.notificationQueue.add(
-      BOOKING_CANCELLED_JOB,
-      {
-        booking,
-        user: booking.user,
-      },
-      { attempts: 3, backoff: 5000, removeOnComplete: true },
-    );
-    this.logger.log(`Booking ${id} cancelled by user ${userId}`);
+    try {
+      await this.notificationQueue.add(
+        BOOKING_CANCELLED_JOB,
+        { booking, user: booking.user },
+        { attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
+      );
+    } catch (notifError) {
+      this.logger.error(
+        `Cancel notification failed for booking ${id}`,
+        notifError,
+      );
+    }
 
     return { message: 'Booking cancelled successfully' };
   }

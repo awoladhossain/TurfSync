@@ -1,5 +1,7 @@
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { Roles } from '@/common/decorators/roles.decorator';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { RolesGuard } from '@/common/guards/roles.guard';
 import {
   Body,
   Controller,
@@ -10,11 +12,9 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { Role } from '@prisma/client';
 import { BookingService } from './booking.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
-import { Roles } from '@/common/decorators/roles.decorator';
-import { Role } from '@prisma/client';
-import { RolesGuard } from '@/common/guards/roles.guard';
 
 @Controller('bookings')
 @UseGuards(JwtAuthGuard)
@@ -32,8 +32,13 @@ export class BookingController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string, @CurrentUser('id') userId: string) {
-    return this.bookingService.findOne(id, userId);
+  @Roles(Role.ADMIN, Role.USER)
+  findOne(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') userRole: string,
+  ) {
+    return this.bookingService.findOne(id, userId, userRole);
   }
 
   @Patch(':id/cancel')
