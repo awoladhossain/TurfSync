@@ -47,7 +47,7 @@ export class BookingController {
   }
 
   // Admin only
-  @Get()
+  @Get('admin/all')
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   findAll(@Query('page') page = 1, @Query('limit') limit = 20) {
