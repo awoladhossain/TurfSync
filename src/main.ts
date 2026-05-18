@@ -1,5 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { WinstonModule } from 'nest-winston';
 import { AppModule } from './app.module';
@@ -32,6 +33,16 @@ async function bootstrap() {
     methods: ['GET', 'POST', 'PATCH', 'DELETE'],
     credentials: true,
   });
+
+  const config = new DocumentBuilder()
+    .setTitle('TurfBook API Dashboard')
+    .setDescription('Premium Turf Booking Application Backend Endpoints')
+    .setVersion('1.0')
+    .addBearerAuth() // আপনার JWT এর টোকেন টেস্ট করার জন্য সিকিউরিটি লক
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document);
   const port = process.env.PORT || 3000;
   await app.listen(port);
   console.log(`TurfBook running on: http://localhost:${port}/api`);
