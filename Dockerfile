@@ -3,28 +3,43 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-COPY prisma ./prisma/
-
+COPY prisma ./prisma
 
 RUN npm ci
+
 RUN npx prisma generate
 
 COPY . .
+
 RUN npm run build
+
+# stage 2 production image
 
 FROM node:20-alpine AS production
 
 WORKDIR /app
 
-RUN apk add --no-cache dumb-init
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nestjs -u 1001
+
 
 COPY package*.json ./
-RUN npm ci --only=production
+COPY prisma ./prisma
+
+RUN npm ci --only=production && \
+    npx prisma generate && \
+    npm cache clean --force
 
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+
+RUN chown -R nestjs:nodejs /app
+
+USER nestjs
 
 EXPOSE 3000
 
-ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "dist/main"]
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries= \
+ CMD wget -q0- http://localhost:3000/health || exit 1
+
+
+CMD [ "node", "dist/main.js" ]
