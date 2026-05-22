@@ -1,4 +1,5 @@
 {
+  // "extends": "./tsconfig.json",
   "compilerOptions": {
     "module": "nodenext",
     "moduleResolution": "nodenext",
@@ -23,7 +24,8 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
-    "strictPropertyInitialization": true
+    "strictPropertyInitialization": true,
+    "types": ["jest", "node"]
   },
   "exclude": ["node_modules", "dist", "load-test.js"]
 }
