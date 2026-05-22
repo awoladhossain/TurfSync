@@ -11,3 +11,9 @@ nginx/
 .github/
 coverage/
 *.log
+load-test.js
+summary.html
+bottleneck/
+docs/
+logs/
+docs/
