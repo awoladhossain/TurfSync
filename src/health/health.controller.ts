@@ -1,6 +1,11 @@
 import { PrismaService } from '@/prisma/prisma.service';
 import { REDIS_CLIENT } from '@/redis/redis.constants';
-import { Controller, Get, Inject } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Inject,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import Redis from 'ioredis';
 
 @Controller('health')
@@ -20,6 +25,16 @@ export class HealthController {
     const redis = checks[1];
 
     const isHealthy = db.status === 'fulfilled' && redis.status === 'fulfilled';
+
+    if (!isHealthy) {
+      throw new InternalServerErrorException({
+        status: 'degraded',
+        services: {
+          database: db.status === 'fulfilled' ? 'up' : 'down',
+          redis: redis.status === 'fulfilled' ? 'up' : 'down',
+        },
+      });
+    }
 
     return {
       status: isHealthy ? 'ok' : 'degraded',
