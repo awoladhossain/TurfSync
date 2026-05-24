@@ -20,8 +20,10 @@ enum SportType {
 }
 
 enum PaymentStatus {
-  UNPAID
+  INITIATED
+  PROCESSING
   PAID
+  FAILED
   REFUNDED
 }
 
@@ -108,7 +110,7 @@ model Booking {
   slotId        String        @unique
   totalAmount   Decimal       @db.Decimal(10, 2) // db.decimal is used for currency
   status        BookingStatus @default(PENDING)
-  paymentStatus PaymentStatus @default(UNPAID)
+  paymentStatus PaymentStatus @default(INITIATED)
   notes         String?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -130,7 +132,7 @@ model Payment {
   amount        Decimal       @db.Decimal(10, 2)
   method        String
   transactionId String?       @unique
-  status        PaymentStatus @default(UNPAID)
+  status        PaymentStatus @default(INITIATED)
   paidAt        DateTime?
   createdAt     DateTime      @default(now())
 
