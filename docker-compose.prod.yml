@@ -22,4 +22,5 @@ services:
     ports: []
     command: >
       redis-server
-      --
+      --appendonly yes
+      --appendfsync everysec
