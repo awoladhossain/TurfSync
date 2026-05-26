@@ -9,7 +9,7 @@ volumes:
   redis_data:
 
 services:
-  # PostgreSQL Database
+  # 🗄️ PostgreSQL Database
   postgres:
     image: postgres:15-alpine
     container_name: turfbook_postgres
@@ -29,9 +29,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 20s
 
-  # redis:
+  # ⚡ Redis Cache & Lock
   redis:
     image: redis:7-alpine
     container_name: turfbook_redis
@@ -51,9 +51,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 10s
 
-  # nestjs app
+  # 💻 NestJS App
   app:
     build:
       context: .
@@ -66,11 +66,9 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
+      - /app/node_modules/.prisma
     env_file:
       - .env
-    environment:
-      NODE_ENV: development
-      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/${DB_NAME:-turfbook}
     depends_on:
       postgres:
         condition: service_healthy
@@ -79,7 +77,7 @@ services:
     networks:
       - turfbook_network
 
-  # nginx
+  # ⚖️ Nginx Reverse Proxy
   nginx:
     image: nginx:alpine
     container_name: turfbook_nginx
@@ -89,6 +87,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - app
+      app:
+        condition: service_started
     networks:
       - turfbook_network
