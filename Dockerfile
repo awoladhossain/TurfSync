@@ -1,4 +1,26 @@
 # ==========================================
+# Stage 0: Development
+# ==========================================
+FROM node:20-alpine AS development
+
+WORKDIR /app
+
+COPY package*.json ./
+
+RUN npm install
+
+COPY . .
+
+
+RUN npx prisma generate
+
+EXPOSE 4000
+
+
+CMD [ "npm", "run", "start:dev" ]
+
+
+# ==========================================
 # Stage 1: Builder
 # ==========================================
 FROM node:20-alpine AS builder
@@ -41,9 +63,9 @@ RUN chown -R nestjs:nodejs /app
 
 USER nestjs
 
-EXPOSE 3000
+EXPOSE 4000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD wget -qO- http://localhost:3000/health || exit 1
+    CMD wget -qO- http://localhost:4000/health || exit 1
 
 CMD [ "node", "dist/main.js" ]
