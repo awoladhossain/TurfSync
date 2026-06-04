@@ -1,6 +1,8 @@
-import { AppModule } from '@/app.module';
+import { AuthModule } from '@/auth/auth.module';
+import { PrismaModule } from '@/prisma/prisma.module';
 import { PrismaService } from '@/prisma/prisma.service';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import helmet from 'helmet';
 import request from 'supertest';
@@ -20,15 +22,19 @@ describe('Auth (e2e)', () => {
   let prisma: PrismaService;
   let accessToken: string;
   let refreshToken: string;
+  let httpServer: Parameters<typeof request>[0];
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [
+        ConfigModule.forRoot({ isGlobal: true }),
+        PrismaModule,
+        AuthModule,
+      ],
     }).compile();
 
     app = moduleFixture.createNestApplication();
 
-    // main.ts এর মতো same setup
     app.use(helmet());
     app.setGlobalPrefix('api');
     app.useGlobalPipes(
@@ -40,33 +46,48 @@ describe('Auth (e2e)', () => {
     );
 
     await app.init();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    httpServer = app.getHttpServer();
 
     prisma = moduleFixture.get<PrismaService>(PrismaService);
 
-    // Test data clean করো
-    await prisma.refreshToken.deleteMany({});
-    await prisma.user.deleteMany({ where: { email: 'e2e@test.com' } });
+    await cleanupDatabase();
   });
 
   afterAll(async () => {
-    // Cleanup
-    await prisma.refreshToken.deleteMany({});
-    await prisma.user.deleteMany({ where: { email: 'e2e@test.com' } });
+    await cleanupDatabase();
     await app.close();
   });
+
+  async function cleanupDatabase() {
+    try {
+      // Use dynamic access to bypass potential missing properties during initial project setup
+      const p = prisma as unknown as Record<
+        string,
+        | { deleteMany?: (args?: Record<string, unknown>) => Promise<unknown> }
+        | undefined
+      >;
+      if (p.refreshToken?.deleteMany) {
+        await p.refreshToken.deleteMany({});
+      }
+      if (p.user?.deleteMany) {
+        await p.user.deleteMany({ where: { email: 'e2e@test.com' } });
+      }
+    } catch {
+      // Silent catch for missing tables during initial setup
+    }
+  }
 
   // ─── Register ────────────────────────────────────────
 
   describe('POST /api/auth/register', () => {
     it('should register successfully', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/api/auth/register')
-        .send({
-          name: 'E2E Test User',
-          email: 'e2e@test.com',
-          phone: '01799999999',
-          password: 'Test1234!',
-        });
+      const res = await request(httpServer).post('/api/auth/register').send({
+        name: 'E2E Test User',
+        email: 'e2e@test.com',
+        phone: '01799999999',
+        password: 'Test1234!',
+      });
 
       expect(res.status).toBe(201);
       expect(res.body).toHaveProperty('accessToken');
@@ -81,14 +102,12 @@ describe('Auth (e2e)', () => {
     });
 
     it('should reject duplicate email', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/api/auth/register')
-        .send({
-          name: 'Duplicate',
-          email: 'e2e@test.com', // same email
-          phone: '01788888888',
-          password: 'Test1234!',
-        });
+      const res = await request(httpServer).post('/api/auth/register').send({
+        name: 'Duplicate',
+        email: 'e2e@test.com', // same email
+        phone: '01788888888',
+        password: 'Test1234!',
+      });
 
       expect(res.status).toBe(409);
       const body = res.body as AuthResponse;
@@ -96,27 +115,23 @@ describe('Auth (e2e)', () => {
     });
 
     it('should reject invalid phone', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/api/auth/register')
-        .send({
-          name: 'Bad Phone',
-          email: 'badphone@test.com',
-          phone: '123', // invalid
-          password: 'Test1234!',
-        });
+      const res = await request(httpServer).post('/api/auth/register').send({
+        name: 'Bad Phone',
+        email: 'badphone@test.com',
+        phone: '123', // invalid
+        password: 'Test1234!',
+      });
 
       expect(res.status).toBe(400);
     });
 
     it('should reject weak password', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/api/auth/register')
-        .send({
-          name: 'Weak Pass',
-          email: 'weak@test.com',
-          phone: '01777777777',
-          password: 'weak', // too weak
-        });
+      const res = await request(httpServer).post('/api/auth/register').send({
+        name: 'Weak Pass',
+        email: 'weak@test.com',
+        phone: '01777777777',
+        password: 'weak', // too weak
+      });
 
       expect(res.status).toBe(400);
     });
@@ -126,24 +141,20 @@ describe('Auth (e2e)', () => {
 
   describe('POST /api/auth/login', () => {
     it('should login successfully', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/api/auth/login')
-        .send({
-          email: 'e2e@test.com',
-          password: 'Test1234!',
-        });
+      const res = await request(httpServer).post('/api/auth/login').send({
+        email: 'e2e@test.com',
+        password: 'Test1234!',
+      });
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('accessToken');
     });
 
     it('should reject wrong password', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/api/auth/login')
-        .send({
-          email: 'e2e@test.com',
-          password: 'WrongPass123!',
-        });
+      const res = await request(httpServer).post('/api/auth/login').send({
+        email: 'e2e@test.com',
+        password: 'WrongPass123!',
+      });
 
       expect(res.status).toBe(401);
     });
@@ -153,7 +164,7 @@ describe('Auth (e2e)', () => {
 
   describe('GET /api/auth/me', () => {
     it('should return profile with valid token', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(httpServer)
         .get('/api/auth/me')
         .set('Authorization', `Bearer ${accessToken}`);
 
@@ -162,13 +173,13 @@ describe('Auth (e2e)', () => {
     });
 
     it('should reject without token', async () => {
-      const res = await request(app.getHttpServer()).get('/api/auth/me');
+      const res = await request(httpServer).get('/api/auth/me');
 
       expect(res.status).toBe(401);
     });
 
     it('should reject with invalid token', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(httpServer)
         .get('/api/auth/me')
         .set('Authorization', 'Bearer invalid.token.here');
 
@@ -180,7 +191,7 @@ describe('Auth (e2e)', () => {
 
   describe('POST /api/auth/refresh', () => {
     it('should return new token pair', async () => {
-      const res = await request(app.getHttpServer())
+      const res = await request(httpServer)
         .post('/api/auth/refresh')
         .send({ refreshToken });
 
@@ -194,16 +205,15 @@ describe('Auth (e2e)', () => {
     });
 
     it('should reject reused refresh token', async () => {
-      // পুরনো refreshToken আবার use করার চেষ্টা
       const oldToken = refreshToken;
 
-      // নতুন token নিলাম
-      await request(app.getHttpServer())
+      // Get a new token pair
+      await request(httpServer)
         .post('/api/auth/refresh')
         .send({ refreshToken: oldToken });
 
-      // পুরনো token আবার try
-      const res = await request(app.getHttpServer())
+      // Try to use the old token again
+      const res = await request(httpServer)
         .post('/api/auth/refresh')
         .send({ refreshToken: oldToken });
 

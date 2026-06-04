@@ -18,6 +18,7 @@ const mockPrismaService = {
     findUnique: jest.fn(),
     findMany: jest.fn(),
     count: jest.fn(),
+    create: jest.fn(),
   },
   slot: { update: jest.fn() },
 };
@@ -91,21 +92,23 @@ describe('BookingService', () => {
         slot: { startTime: '09:00', endTime: '10:00' },
       };
 
-      // $transaction mock — callback কে execute করো
-      mockPrismaService.$transaction.mockImplementation(() => {
-        // queryRaw mock — slot data return করো
-        mockPrismaService.$queryRaw.mockResolvedValue([
-          {
-            id: 'slot-1',
-            turfId: 'turf-1',
-            isBooked: false,
-            isActive: true,
-            pricePerHour: 1500,
-          },
-        ]);
-        mockPrismaService.booking.findFirst.mockResolvedValue(null);
-        return mockBooking;
-      });
+      // Interactive transaction mock: execute the callback with the mocked client
+      mockPrismaService.$transaction.mockImplementation(
+        (callback: (client: typeof mockPrismaService) => unknown) => {
+          mockPrismaService.$queryRaw.mockResolvedValue([
+            {
+              id: 'slot-1',
+              turfId: 'turf-1',
+              isBooked: false,
+              isActive: true,
+              pricePerHour: 1500,
+            },
+          ]);
+          mockPrismaService.booking.findFirst.mockResolvedValue(null);
+          mockPrismaService.booking.create.mockResolvedValue(mockBooking);
+          return callback(mockPrismaService);
+        },
+      );
 
       mockRedisLockService.delByPattern.mockResolvedValue(undefined);
       mockQueue.add.mockResolvedValue({});

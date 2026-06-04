@@ -133,10 +133,11 @@
       }
     },
     "moduleNameMapper": {
-      "^@/(.*)$": "<rootDir>/$1"
+      "^@/(.*)$": "<rootDir>/$1",
+      "^uuid$": "<rootDir>/../node_modules/uuid/dist-node/index.js"
     },
     "transformIgnorePatterns": [
-      "/node_modules/(?!uuid)"
+      "node_modules/(?!(uuid|@sentry)/)"
     ]
   }
 }

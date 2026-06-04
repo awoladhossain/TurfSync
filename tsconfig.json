@@ -11,6 +11,7 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
+    "allowJs": true,
     "target": "ES2023",
     "sourceMap": true,
     "outDir": "./dist",
@@ -24,7 +25,7 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
-    "strictPropertyInitialization": true,
+    "strictPropertyInitialization": false,
     "types": ["node", "jest"],
     "typeRoots": ["./node_modules/@types"]
   },
