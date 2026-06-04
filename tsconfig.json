@@ -25,7 +25,8 @@
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
     "strictPropertyInitialization": true,
-    "types": ["jest", "node"]
+    "types": ["node", "jest"],
+    "typeRoots": ["./node_modules/@types"]
   },
   "exclude": ["node_modules", "dist", "load-test.js"]
 }
