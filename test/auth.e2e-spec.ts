@@ -171,7 +171,8 @@ describe('Auth (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`);
 
       expect(res.status).toBe(200);
-      expect((res.body as AuthResponse).user.email).toBe('e2e@test.com');
+      const body = res.body as { email: string };
+      expect(body.email).toBe('e2e@test.com');
     });
 
     it('should reject without token', async () => {
