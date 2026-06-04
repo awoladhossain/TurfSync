@@ -1,4 +1,5 @@
 import { AuthModule } from '@/auth/auth.module';
+import { GlobalExceptionFilter } from '@/common/filters/http-exception.filter';
 import { PrismaModule } from '@/prisma/prisma.module';
 import { PrismaService } from '@/prisma/prisma.service';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -37,6 +38,7 @@ describe('Auth (e2e)', () => {
 
     app.use(helmet());
     app.setGlobalPrefix('api');
+    app.useGlobalFilters(new GlobalExceptionFilter());
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
