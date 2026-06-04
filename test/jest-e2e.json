@@ -4,11 +4,14 @@
     "json",
     "ts"
   ],
-  "rootDir": "..",
+  "rootDir": ".",
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },
-  "testTimeout": 30000
+  "moduleNameMapper": {
+    "^@/(.*)$": "<rootDir>/../src/$1",
+    "^uuid$": "<rootDir>/../node_modules/uuid/dist/index.js"
+  }
 }
