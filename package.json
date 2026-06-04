@@ -133,7 +133,8 @@
       }
     },
     "moduleNameMapper": {
-      "^@/(.*)$": "<rootDir>/$1"
+      "^@/(.*)$": "<rootDir>/$1",
+      "^uuid$": "<rootDir>/../node_modules/uuid/dist/index.js"
     }
   }
 }
