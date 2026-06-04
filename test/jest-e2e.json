@@ -11,7 +11,9 @@
     "^.+\\.(t|j)s$": "ts-jest"
   },
   "moduleNameMapper": {
-    "^@/(.*)$": "<rootDir>/../src/$1",
-    "^uuid$": "<rootDir>/../node_modules/uuid/dist/index.js"
-  }
+    "^@/(.*)$": "<rootDir>/../src/$1"
+  },
+  "transformIgnorePatterns": [
+    "/node_modules/(?!uuid)"
+  ]
 }
