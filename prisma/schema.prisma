@@ -127,16 +127,24 @@ model Booking {
 }
 
 model Payment {
-  id            String        @id @default(uuid())
-  bookingId     String        @unique
-  amount        Decimal       @db.Decimal(10, 2)
-  method        String
-  transactionId String?       @unique
-  status        PaymentStatus @default(INITIATED)
+  id        String        @id @default(uuid())
+  bookingId String        @unique
+  amount    Decimal       @db.Decimal(10, 2)
+  currency  String        @default("usd")
+  status    PaymentStatus @default(INITIATED)
+
+  stripePaymentIntentId String  @unique
+  stripeClientSecret    String?
+  stripeChargeId        String?
+
   paidAt        DateTime?
-  createdAt     DateTime      @default(now())
+  failureReason String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   booking Booking @relation(fields: [bookingId], references: [id])
 
+  @@index([status])
+  @@index([stripePaymentIntentId])
   @@map("payments")
 }
