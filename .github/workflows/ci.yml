@@ -1,55 +1,74 @@
-name: CI Pipeline
+name: TurfSync CI Pipeline
 
 on:
   push:
-    branches:
-      - main
+    branches: [main, develop]
   pull_request:
-    branches:
-      - main
+    branches: [main, develop]
 
 jobs:
-  build:
+  test-and-build:
     runs-on: ubuntu-latest
 
     services:
       postgres:
         image: postgres:15-alpine
-        ports:
-          - 5432:5432
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: turfbook
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: turfbook_test
+        ports:
+          - 5432:5432
         options: >-
-          --health-cmd="pg_isready -U postgres"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
-    env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/turfbook
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
-      - name: Checkout code
+      - name: ⬇️ Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
 
-      - name: Install dependencies
-        run: npm install
+      - name: 📦 Install Dependencies
+        run: npm ci
 
-      - name: Generate Prisma Client
-        run: npx prisma generate
+      - name: ⚙️ Setup Test Environment Variables
+        run: |
+          echo "NODE_ENV=test" >> $GITHUB_ENV
+          echo "DATABASE_URL=postgresql://postgres:password@localhost:5432/turfbook_test?schema=public" >> $GITHUB_ENV
+          echo "REDIS_HOST=localhost" >> $GITHUB_ENV
+          echo "REDIS_PORT=6379" >> $GITHUB_ENV
+          echo "JWT_SECRET=test-secret-key-for-ci-pipeline-environment-12345" >> $GITHUB_ENV
+          echo "JWT_EXPIRES_IN=15m" >> $GITHUB_ENV
+          echo "JWT_REFRESH_SECRET=test-refresh-secret-key-for-ci-pipeline-environment-12345" >> $GITHUB_ENV
+          echo "JWT_REFRESH_EXPIRES_IN=7d" >> $GITHUB_ENV
 
-      - name: Push DB schema
-        run: npx prisma db push
+      - name: 🗄️ Generate Prisma Client & Run Migrations
+        run: |
+          npx prisma generate
+          npx prisma migrate deploy
 
-      - name: Skip tests
-        run: echo "No tests yet"
+      - name: 🧪 Run Unit Tests
+        run: npm run test
 
-      - name: Build project
+      - name: 🚀 Run End-to-End (E2E) Tests
+        run: npm run test:e2e
+
+      - name: 🏗️ Verify Production Build
         run: npm run build
