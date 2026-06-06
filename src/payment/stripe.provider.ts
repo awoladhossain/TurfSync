@@ -1,12 +1,14 @@
 import { ConfigService } from '@nestjs/config';
-import { STRIPE_CLIENT } from './payment.constant';
 import Stripe from 'stripe';
+import { STRIPE_CLIENT } from './payment.constant';
+import { Provider } from '@nestjs/common';
 
-export const stripeProvider = {
+export const stripeProvider: Provider = {
   provide: STRIPE_CLIENT,
-  useFactory: (configService: ConfigService): Stripe.Stripe => {
+  // 🛠️ রিটার্ন টাইপ সরিয়ে দিলাম, টাইপস্ক্রিপ্ট অটো ইনফার করে নেবে
+  useFactory: (configService: ConfigService) => {
     return new Stripe(configService.getOrThrow<string>('STRIPE_SECRET_KEY'), {
-      apiVersion: '2026-05-27.dahlia',
+      apiVersion: '2026-04-22.dahlia',
       typescript: true,
     });
   },
