@@ -50,8 +50,24 @@ export class PaymentService {
     if (booking.payment?.status === PaymentStatus.PAID) {
       throw new ConflictException('This booking payment already completed');
     }
-    // checking turf exist
-    // checking turf booking slot
-    // creating payment intent
+    if (
+      booking.payment?.status === PaymentStatus.INITIATED &&
+      booking.payment?.stripeClientSecret
+    ) {
+      return {
+        clientSecret: booking.payment.stripeClientSecret,
+        paymentId: booking.payment.id,
+        amount: booking.totalAmount,
+      };
+    }
+
+    // amount in cents
+    const amountInCents = Math.round(Number(booking.totalAmount) * 100);
+
+    // stripe payment intent
+    const paymentIntent = await this.stripe.paymentIntents.create({
+      amount: amountInCents,
+      currency: this.configService.get('STRIPE_CURRENCY', 'usd'),
+    });
   }
 }
