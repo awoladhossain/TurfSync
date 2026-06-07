@@ -68,6 +68,42 @@ export class PaymentService {
     const paymentIntent = await this.stripe.paymentIntents.create({
       amount: amountInCents,
       currency: this.configService.get('STRIPE_CURRENCY', 'usd'),
+      metadata: {
+        bookingId: booking.id,
+        userId,
+        turfName: booking.turf.name,
+        slotTime: `${booking.slot.startTime} - ${booking.slot.endTime}`,
+      },
+      // automatic payment methods - card, bank transfer, etc
+      automatic_payment_methods: {
+        enabled: true,
+      },
     });
+    //  stripe payment save in database
+    const payment = await this.prisma.payment.upsert({
+      where: { bookingId: dto.bookingId },
+      create: {
+        bookingId: dto.bookingId,
+        amount: booking.totalAmount,
+        currency: this.configService.get('STRIPE_CURRENCY', 'usd'),
+        stripePaymentIntentId: paymentIntent.id,
+        stripeClientSecret: paymentIntent.client_secret,
+        status: PaymentStatus.INITIATED,
+      },
+      update: {
+        stripePaymentIntentId: paymentIntent.id,
+        stripeClientSecret: paymentIntent.client_secret,
+        status: PaymentStatus.INITIATED,
+      },
+    });
+
+    this.logger.log(
+      `PaymentIntent created: ${paymentIntent.id} for booking: ${dto.bookingId}`,
+    );
+    return {
+      clientSecret: paymentIntent.client_secret,
+      paymentId: payment.id,
+      amount: booking.totalAmount,
+    };
   }
 }
