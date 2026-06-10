@@ -61,7 +61,7 @@ export class PaymentService {
       };
     }
 
-    // amount in cents
+    // amount in cents - stripe accepts amount in cents
     const amountInCents = Math.round(Number(booking.totalAmount) * 100);
 
     // stripe payment intent
