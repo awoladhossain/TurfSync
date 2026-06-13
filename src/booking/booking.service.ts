@@ -132,7 +132,7 @@ export class BookingService {
               slotId: dto.slotId,
               totalAmount: slot.pricePerHour,
               notes: dto.notes,
-              status: BookingStatus.CONFIRMED,
+              status: BookingStatus.PENDING,
             },
             include: {
               user: {
