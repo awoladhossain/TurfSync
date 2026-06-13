@@ -26,4 +26,14 @@ export class PaymentController {
   ) {
     return this.paymentService.getPaymentStatus(bookingId, userId);
   }
+
+  // refund
+  @Post('refund/:bookingId')
+  @UseGuards(JwtAuthGuard)
+  refund(
+    @Param('bookingId') bookingId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.paymentService.refund(bookingId, userId);
+  }
 }
