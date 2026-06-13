@@ -2,10 +2,7 @@ import { format, transports } from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
 
 export const winstonConfig = {
-  format: format.combine(
-    format.timestamp(),
-    format.json(), 
-  ),
+  format: format.combine(format.timestamp(), format.json()),
   transports: [
     new transports.Console({
       format: format.combine(

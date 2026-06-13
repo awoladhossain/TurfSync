@@ -1,6 +1,11 @@
 import { PrismaService } from '@/prisma/prisma.service';
 import { RedisLockService } from '@/redis/redis-lock.service';
-import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
 import { CreateTurfDto } from './dto/create-turf.dto';
@@ -223,7 +228,9 @@ export class TurfService {
     } else {
       searchDate = new Date(date);
       if (isNaN(searchDate.getTime())) {
-        throw new BadRequestException('Invalid date format. Expected YYYY-MM-DD.');
+        throw new BadRequestException(
+          'Invalid date format. Expected YYYY-MM-DD.',
+        );
       }
     }
     searchDate.setUTCHours(0, 0, 0, 0);
