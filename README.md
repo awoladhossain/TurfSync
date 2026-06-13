@@ -91,6 +91,84 @@ turfbook/
 
 ---
 
+## 💳 Payment & Notification System Architecture
+
+This project implements a secure, asynchronous, and event-driven payment system using **Stripe**, **Bull (Redis-backed queue)**, and **PostgreSQL (Prisma ORM)**. 
+
+### Architecture Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Player
+    participant Client as Frontend
+    participant Server as NestJS API
+    participant DB as PostgreSQL (Prisma)
+    participant Stripe as Stripe API
+    participant Queue as Redis (Bull Queue)
+    participant Processor as NotificationProcessor
+
+    %% Phase 1: Create Payment Intent
+    Player->>Client: Book and Proceed to Pay
+    Client->>Server: POST /payment/create-payment-intent { bookingId }
+    Server->>DB: Check Booking Status
+    Server->>Stripe: Create PaymentIntent (amount, metadata)
+    Stripe-->>Server: Return PaymentIntent (client_secret)
+    Server->>DB: Upsert Payment (status: INITIATED)
+    Server-->>Client: Return clientSecret, paymentId
+
+    %% Phase 2: Stripe Payment Processing
+    Client->>Stripe: Submit card details with clientSecret
+    Stripe->>Stripe: Process Payment (3D Secure, etc.)
+    Stripe-->>Client: Payment Succeeded / Failed
+
+    %% Phase 3: Stripe Webhook Notification
+    Stripe->>Server: POST /payment/webhook (with stripe-signature)
+    Server->>Server: Verify Webhook Signature (rawBody)
+    
+    alt Payment Succeeded
+        Server->>DB: Start DB Transaction
+        DB->>DB: Update Payment (status: PAID)
+        DB->>DB: Update Booking (status: CONFIRMED)
+        Server->>Queue: Push PAYMENT_SUCCESS_JOB (payload: payment, booking, user)
+        Server-->>Stripe: 200 OK
+        
+        %% Async Notification
+        Queue->>Processor: Process PAYMENT_SUCCESS_JOB
+        Processor->>Processor: Simulate sending Success SMS to user
+    else Payment Failed
+        Server->>DB: Update Payment (status: FAILED, failureReason)
+        Server->>Queue: Push PAYMENT_FAILED_JOB (payload: paymentId, reason, user, booking)
+        Server-->>Stripe: 200 OK
+        
+        %% Async Notification
+        Queue->>Processor: Process PAYMENT_FAILED_JOB
+        Processor->>Processor: Simulate sending Failure SMS to user
+    end
+```
+
+### Components & Responsibilities
+
+#### 1. `PaymentController` (`src/payment/payment.controller.ts`)
+* **`createPaymentIntent`**: Secure endpoint (`@UseGuards(JwtAuthGuard)`) that receives a `bookingId` and starts the Stripe Checkout flow by generating a `clientSecret`.
+* **`handleWebhook`**: Public endpoint (`POST /webhook`) that acts as the entry point for Stripe asynchronous event notifications. It verifies the Stripe webhook signature using raw request body (`req.rawBody`) before parsing the payload.
+
+#### 2. `PaymentService` (`src/payment/payment.service.ts`)
+* **`createPaymentIntent`**: Performs validation checks (booking existence, authorization, payment status). It converts the booking amount into cents (Stripe requirement) and invokes the Stripe API. It registers or updates a payment record in the database with `INITIATED` status.
+* **`handleWebhook`**: Coordinates incoming events.
+* **`handlePaymentSuccess`**: Runs a PostgreSQL transaction to ensure consistency:
+  1. Updates the `payment` status to `PAID`, saving the Stripe Charge ID and payment timestamp.
+  2. Updates the `booking` status to `CONFIRMED`.
+  3. Dispatches `PAYMENT_SUCCESS_JOB` containing `payment`, `booking`, and `user` data into the Redis-backed Bull queue.
+* **`handlePaymentFailed`**: Updates the database `payment` status to `FAILED`, stores the failure reason, and dispatches a `PAYMENT_FAILED_JOB` with the necessary payload to the Bull queue.
+
+#### 3. `Bull Queue` & `NotificationProcessor` (`src/queue/processors/notification.processor.ts`)
+* Decouples time-consuming and non-blocking tasks (like sending SMS notifications or emails) from the main request/response lifecycle.
+* **`handlePaymentSuccess`**: Pulls the job from Redis, extracts the payment details, and triggers the SMS simulation for booking confirmation.
+* **`handlePaymentFailed`**: Extracts the failure reason and payment details, sending a failure alert SMS to the user.
+
+---
+
 ## 🔧 Installation
 
 ### Prerequisites
