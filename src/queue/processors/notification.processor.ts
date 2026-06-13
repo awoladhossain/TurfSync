@@ -1,4 +1,7 @@
-import { PAYMENT_SUCCESS_JOB } from '@/payment/payment.constant';
+import {
+  PAYMENT_FAILED_JOB,
+  PAYMENT_SUCCESS_JOB,
+} from '@/payment/payment.constant';
 import { Process, Processor } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
 import type { Job } from 'bull';
@@ -45,6 +48,13 @@ interface PaymentSuccessData {
   booking: Booking;
 }
 
+interface PaymentFailedData {
+  paymentId: string;
+  reason: string;
+  user: User;
+  booking: Booking;
+}
+
 @Processor(NOTIFICATION_QUEUE)
 export class NotificationProcessor {
   private readonly logger = new Logger(NotificationProcessor.name);
@@ -86,6 +96,20 @@ export class NotificationProcessor {
     await this.simulateSMS(
       user.phone,
       `TurfSync: Your payment of amount ${payment.amount} is successful. Your booking at ${booking.date} is confirmed! Booking ID: ${booking.id}`,
+    );
+  }
+
+  // payment failed job
+  @Process(PAYMENT_FAILED_JOB)
+  async handlePaymentFailed(job: Job) {
+    const data = job.data as PaymentFailedData;
+    const { paymentId, reason, user, booking } = data;
+    this.logger.log(
+      `Payment failed for payment ID: ${paymentId}, reason: ${reason}`,
+    );
+    await this.simulateSMS(
+      user.phone,
+      `TurfSync: Your payment of amount ${paymentId} is failed. Your booking at ${booking.date} is failed! Booking ID: ${booking.id}`,
     );
   }
 

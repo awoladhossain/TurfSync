@@ -237,6 +237,15 @@ export class PaymentService {
   private async handlePaymentFailed(paymentIntent: StripePaymentIntent) {
     const payment = await this.prisma.payment.findUnique({
       where: { stripePaymentIntentId: paymentIntent.id },
+      include: {
+        booking: {
+          include: {
+            user: {
+              select: { id: true, name: true, email: true, phone: true },
+            },
+          },
+        },
+      },
     });
 
     if (!payment) return;
@@ -260,7 +269,12 @@ export class PaymentService {
     try {
       await this.notificationQueue.add(
         PAYMENT_FAILED_JOB,
-        { paymentId: payment.id, reason: failureReason },
+        {
+          paymentId: payment.id,
+          reason: failureReason,
+          user: payment.booking.user,
+          booking: payment.booking,
+        },
         { attempts: 2 },
       );
     } catch (err) {
