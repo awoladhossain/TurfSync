@@ -25,6 +25,11 @@ interface Booking {
   id: string;
   date?: string;
   startTime?: string;
+  slot?: {
+    date: Date | string;
+    startTime: string;
+    endTime: string;
+  };
 }
 
 interface BookingConfirmedData {
@@ -93,9 +98,20 @@ export class NotificationProcessor {
     const data = job.data as PaymentSuccessData;
     const { payment, user, booking } = data;
     this.logger.log(`Payment successful for user ${user.id}`);
+
+    const bookingDate =
+      booking.date ||
+      (booking.slot?.date
+        ? new Date(booking.slot.date).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          })
+        : 'Confirmed Date');
+
     await this.simulateSMS(
       user.phone,
-      `TurfSync: Your payment of amount ${payment.amount} is successful. Your booking at ${booking.date} is confirmed! Booking ID: ${booking.id}`,
+      `TurfSync: Your payment of amount ${payment.amount} is successful. Your booking at ${bookingDate} is confirmed! Booking ID: ${booking.id}`,
     );
   }
 
@@ -107,9 +123,20 @@ export class NotificationProcessor {
     this.logger.log(
       `Payment failed for payment ID: ${paymentId}, reason: ${reason}`,
     );
+
+    const bookingDate =
+      booking.date ||
+      (booking.slot?.date
+        ? new Date(booking.slot.date).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          })
+        : 'Confirmed Date');
+
     await this.simulateSMS(
       user.phone,
-      `TurfSync: Your payment of amount ${paymentId} is failed. Your booking at ${booking.date} is failed! Booking ID: ${booking.id}`,
+      `TurfSync: Your payment of amount ${paymentId} is failed. Your booking at ${bookingDate} is failed! Booking ID: ${booking.id}`,
     );
   }
 
