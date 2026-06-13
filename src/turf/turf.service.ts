@@ -1,6 +1,6 @@
 import { PrismaService } from '@/prisma/prisma.service';
 import { RedisLockService } from '@/redis/redis-lock.service';
-import { ConflictException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
 import { CreateTurfDto } from './dto/create-turf.dto';
@@ -216,11 +216,19 @@ export class TurfService {
   }
 
   // available turfs for a given time range - Cache-Aside Pattern
-  async getAvailableSlots(turfId: string, date: string) {
-    const cacheKey = `slots:available:${turfId}:${date}`;
-
-    const searchDate = new Date(date);
+  async getAvailableSlots(turfId: string, date?: string) {
+    let searchDate: Date;
+    if (!date) {
+      searchDate = new Date();
+    } else {
+      searchDate = new Date(date);
+      if (isNaN(searchDate.getTime())) {
+        throw new BadRequestException('Invalid date format. Expected YYYY-MM-DD.');
+      }
+    }
     searchDate.setUTCHours(0, 0, 0, 0);
+    const dateStr = searchDate.toISOString().split('T')[0];
+    const cacheKey = `slots:available:${turfId}:${dateStr}`;
 
     const cached = await this.redis.get(cacheKey);
     if (cached) {
@@ -240,7 +248,7 @@ export class TurfService {
       },
       orderBy: { startTime: 'asc' },
     });
-    const result = { turf, slots, date };
+    const result = { turf, slots, date: dateStr };
     await this.redis.set(cacheKey, result, 60); // cache for 1 minute
     return result;
   }

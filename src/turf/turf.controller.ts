@@ -32,7 +32,7 @@ export class TurfController {
   }
 
   @Get(':id/slots')
-  getSlots(@Param('id') id: string, @Query('date') date: string) {
+  getSlots(@Param('id') id: string, @Query('date') date?: string) {
     return this.turfService.getAvailableSlots(id, date);
   }
 
