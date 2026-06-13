@@ -278,4 +278,31 @@ export class PaymentService {
       data: { status: PaymentStatus.PROCESSING },
     });
   }
+
+  // Get Payment Status
+
+  async getPaymentStatus(bookingId: string, userId: string) {
+    const payment = await this.prisma.payment.findUnique({
+      where: {
+        bookingId,
+      },
+      include: {
+        booking: { select: { userId: true } },
+      },
+    });
+    if (!payment) {
+      throw new NotFoundException('Payment not found');
+    }
+    if (payment.booking.userId !== userId) {
+      throw new BadRequestException(
+        'You are not authorized to access this payment',
+      );
+    }
+    return {
+      status: payment.status,
+      amount: payment.amount,
+      paidAt: payment.paidAt,
+      failureReason: payment.failureReason,
+    };
+  }
 }
