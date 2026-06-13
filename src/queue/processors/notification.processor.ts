@@ -1,3 +1,4 @@
+import { PAYMENT_SUCCESS_JOB } from '@/payment/payment.constant';
 import { Process, Processor } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
 import type { Job } from 'bull';
@@ -34,6 +35,16 @@ interface BookingCancelledData {
   user: User;
 }
 
+interface Payment {
+  amount: number | string;
+}
+
+interface PaymentSuccessData {
+  payment: Payment;
+  user: User;
+  booking: Booking;
+}
+
 @Processor(NOTIFICATION_QUEUE)
 export class NotificationProcessor {
   private readonly logger = new Logger(NotificationProcessor.name);
@@ -66,6 +77,18 @@ export class NotificationProcessor {
     );
     this.logger.log(`Cancellation SMS sent to ${user.phone}`);
   }
+  // payment successfull job
+  @Process(PAYMENT_SUCCESS_JOB)
+  async handlePaymentSuccess(job: Job) {
+    const data = job.data as PaymentSuccessData;
+    const { payment, user, booking } = data;
+    this.logger.log(`Payment successful for user ${user.id}`);
+    await this.simulateSMS(
+      user.phone,
+      `TurfSync: Your payment of amount ${payment.amount} is successful. Your booking at ${booking.date} is confirmed! Booking ID: ${booking.id}`,
+    );
+  }
+
   private async simulateSMS(phone: string, message: string): Promise<void> {
     return new Promise((resolve) => {
       setTimeout(() => {
