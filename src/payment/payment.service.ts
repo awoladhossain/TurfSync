@@ -340,6 +340,8 @@ export class PaymentService {
     });
 
     // update database
+
+    // 1. payment table status changed from paid to refund
     await this.prisma.$transaction(async (tx) => {
       await tx.payment.update({
         where: { id: payment.id },
@@ -348,15 +350,17 @@ export class PaymentService {
         },
       });
 
+      // 2. booking table status changed from confirmed to cancelled
       await tx.booking.update({
         where: { id: bookingId },
         data: {
           status: BookingStatus.CANCELLED,
         },
       });
+      // 3. slot table status changed from booked to unbooked
       await tx.slot.update({
         where: { id: payment.booking.slot.id },
-        data: { isBooked: true },
+        data: { isBooked: false },
       });
     });
 
