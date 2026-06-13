@@ -10,6 +10,7 @@ import { winstonConfig } from './common/logger/winston.config';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: WinstonModule.createLogger(winstonConfig),
+    rawBody: true,
   });
 
   app.use(helmet());
@@ -38,7 +39,7 @@ async function bootstrap() {
     .setTitle('TurfBook API Dashboard')
     .setDescription('Premium Turf Booking Application Backend Endpoints')
     .setVersion('1.0')
-    .addBearerAuth() // আপনার JWT এর টোকেন টেস্ট করার জন্য সিকিউরিটি লক
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
