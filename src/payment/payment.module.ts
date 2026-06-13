@@ -1,9 +1,10 @@
+import { NotificationProcessor } from '@/queue/processors/notification.processor';
+import { NOTIFICATION_QUEUE } from '@/queue/queue.constant';
+import { BullModule } from '@nestjs/bull';
 import { Module } from '@nestjs/common';
 import { PaymentController } from './payment.controller';
 import { PaymentService } from './payment.service';
 import { stripeProvider } from './stripe.provider';
-import { BullModule } from '@nestjs/bull';
-import { NOTIFICATION_QUEUE } from '@/queue/queue.constant';
 
 @Module({
   imports: [
@@ -12,6 +13,6 @@ import { NOTIFICATION_QUEUE } from '@/queue/queue.constant';
     }),
   ],
   controllers: [PaymentController],
-  providers: [PaymentService, stripeProvider],
+  providers: [PaymentService, stripeProvider, NotificationProcessor],
 })
 export class PaymentModule {}
