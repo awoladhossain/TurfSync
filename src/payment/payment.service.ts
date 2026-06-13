@@ -305,4 +305,68 @@ export class PaymentService {
       failureReason: payment.failureReason,
     };
   }
+
+  // Refund Booking
+
+  async refund(bookingId: string, userId: string) {
+    const payment = await this.prisma.payment.findUnique({
+      where: { bookingId },
+      include: {
+        booking: { select: { userId: true, status: true, slot: true } },
+      },
+    });
+
+    // Validation
+    if (!payment) {
+      throw new NotFoundException('Payment not found');
+    }
+    if (payment.booking.userId !== userId) {
+      throw new BadRequestException(
+        'You are not authorized to refund this booking',
+      );
+    }
+
+    if (payment.status !== PaymentStatus.PAID) {
+      throw new BadRequestException('Payment must be paid to be refunded');
+    }
+    if (payment.booking.slot.date <= new Date()) {
+      throw new BadRequestException(
+        'Booking must be in the future to be refunded',
+      );
+    }
+    // refund logic
+    const refund = await this.stripe.refunds.create({
+      payment_intent: payment.stripePaymentIntentId,
+    });
+
+    // update database
+    await this.prisma.$transaction(async (tx) => {
+      await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: PaymentStatus.REFUNDED,
+        },
+      });
+
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: {
+          status: BookingStatus.CANCELLED,
+        },
+      });
+      await tx.slot.update({
+        where: { id: payment.booking.slot.id },
+        data: { isBooked: true },
+      });
+    });
+
+    this.logger.log(`Booking refunded: ${bookingId} | Refund ID: ${refund.id}`);
+
+    return {
+      message: 'Booking refunded successfully',
+      refundId: refund.id,
+      amount: payment.amount,
+      bookingId: bookingId,
+    };
+  }
 }
