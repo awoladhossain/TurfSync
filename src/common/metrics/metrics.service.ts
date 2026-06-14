@@ -1,10 +1,9 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable } from '@nestjs/common';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
-import { Counter, Gauge, Histogram } from "prom-client";
+import { Counter, Gauge, Histogram } from 'prom-client';
 
 @Injectable()
 export class MetricsService {
-
   // Http request counter
 
   constructor(
@@ -31,16 +30,28 @@ export class MetricsService {
 
     @InjectMetric('db_query_duration_seconds')
     private readonly dbQueryDuration: Histogram<string>,
-  ) { }
+  ) {}
 
   // Http tracking
 
   incrementHttpRequest(method: string, route: string, statusCode: number) {
-    this.httpRequestTotalCounter.inc({ method, route, status_code: statusCode.toString() })
+    this.httpRequestTotalCounter.inc({
+      method,
+      route,
+      status_code: statusCode.toString(),
+    });
   }
 
-  observeHttpRequestDuration(method: string, route: string, statusCode: number, durationSeconds: number) {
-    this.httpRequestDurationSeconds.observe({ method, route, status_code: statusCode.toString() }, durationSeconds);
+  observeHttpRequestDuration(
+    method: string,
+    route: string,
+    statusCode: number,
+    durationSeconds: number,
+  ) {
+    this.httpRequestDurationSeconds.observe(
+      { method, route, status_code: statusCode.toString() },
+      durationSeconds,
+    );
   }
 
   // Business metrics
@@ -60,16 +71,15 @@ export class MetricsService {
 
   // Redis tracking
   incrementRedisCacheHits(key: string) {
-    this.redisCacheHits.inc({ cache_key: key })
+    this.redisCacheHits.inc({ cache_key: key });
   }
 
   incrementRedisCacheMisses(key: string) {
-    this.redisCacheMisses.inc({ cache_key: key })
+    this.redisCacheMisses.inc({ cache_key: key });
   }
 
   // Database tracking
   observeDBQueryDuration(queryType: string, durationSeconds: number) {
-    this.dbQueryDuration.observe({ query_type: queryType }, durationSeconds)
+    this.dbQueryDuration.observe({ query_type: queryType }, durationSeconds);
   }
-
 }
