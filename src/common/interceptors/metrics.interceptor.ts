@@ -21,13 +21,13 @@ export class MetricsInterceptor implements NestInterceptor {
     const res = ctx.getResponse<Response>();
     const startTime = process.hrtime.bigint();
 
-    const method = req.method;
+    const method = req.method; // Get, Post, Put, Delete, etc
     const route = (req.route as { path?: string } | undefined)?.path || req.url;
 
     return next.handle().pipe(
       tap(() => {
-        const duration = Number(process.hrtime.bigint() - startTime) / 1e9;
-        const statusCode = res.statusCode;
+        const duration = Number(process.hrtime.bigint() - startTime) / 1e9; // convert nanoseconds to seconds
+        const statusCode = res.statusCode; // ex: 200, 404, 500, etc
 
         this.metricsService.incrementHttpRequest(method, route, statusCode);
         this.metricsService.observeHttpRequestDuration(
