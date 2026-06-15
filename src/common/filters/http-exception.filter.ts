@@ -89,8 +89,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       statusCode: status,
       message,
       errors,
+      requestId: request['requestId'] as string | undefined,
       timestamp: new Date().toISOString(),
       path: request.url,
+      reason: message,
     });
   }
 }
