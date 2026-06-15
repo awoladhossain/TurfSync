@@ -51,6 +51,20 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       this.logger.error(exception);
     }
 
+    //  500 errors - sentry should capture
+
+    if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      this.logger.error({
+        message: 'Internal Server Error',
+        error: exception instanceof Error ? exception.stack : String(exception),
+        stack: exception instanceof Error ? exception.stack : undefined,
+        requestId: request['requestId'] as string | undefined,
+        url: request.url,
+        method: request.method,
+        userId: (request.user as { id?: string | number })?.id,
+      });
+    }
+
     response.status(status).json({
       success: false,
       statusCode: status,
