@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import * as Sentry from '@sentry/node';
 import { Request, Response } from 'express';
 
 @Catch()
@@ -64,6 +65,24 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         userId: (request.user as { id?: string | number })?.id,
       });
     }
+
+    //  Sentry capture
+    Sentry.withScope((scope) => {
+      const requestId = request['requestId'] as string | undefined;
+      if (requestId) {
+        scope.setTag('requestId', requestId);
+      }
+      const userId = (request.user as unknown as { id?: string | number })?.id;
+      if (userId) {
+        scope.setUser({ id: String(userId) });
+      }
+      scope.setContext('request', {
+        method: request.method,
+        url: request.url,
+        ip: request.ip,
+      });
+      Sentry.captureException(exception);
+    });
 
     response.status(status).json({
       success: false,
