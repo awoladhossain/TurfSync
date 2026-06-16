@@ -8,6 +8,7 @@ import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisLockService } from '../redis/redis-lock.service';
+import { MetricsService } from '../common/metrics/metrics.service';
 import { BookingService } from './booking.service';
 
 const mockPrismaService = {
@@ -33,6 +34,10 @@ const mockQueue = {
   add: jest.fn(),
 };
 
+const mockMetricsService = {
+  incrementBookings: jest.fn(),
+};
+
 describe('BookingService', () => {
   let service: BookingService;
 
@@ -43,6 +48,7 @@ describe('BookingService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: RedisLockService, useValue: mockRedisLockService },
         { provide: getQueueToken(NOTIFICATION_QUEUE), useValue: mockQueue },
+        { provide: MetricsService, useValue: mockMetricsService },
       ],
     }).compile();
 

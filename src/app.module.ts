@@ -71,4 +71,4 @@ import { TurfModule } from './turf/turf.module';
     AppService,
   ],
 })
-export class AppModule { }
+export class AppModule {}
