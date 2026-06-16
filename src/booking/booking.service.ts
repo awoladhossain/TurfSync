@@ -1,3 +1,4 @@
+import { MetricsService } from '@/common/metrics/metrics.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import {
   BOOKING_CANCELLED_JOB,
@@ -46,6 +47,7 @@ export class BookingService {
     private prisma: PrismaService,
     private redis: RedisLockService,
     @InjectQueue(NOTIFICATION_QUEUE) private notificationQueue: Queue,
+    private metrics: MetricsService,
   ) {}
 
   async create(
@@ -184,6 +186,7 @@ export class BookingService {
       this.logger.log(
         `Booking created: ${confirmedBooking.id} by user: ${userId}`,
       );
+      this.metrics.incrementBookings('created');
       return confirmedBooking;
     } finally {
       await this.redis.releaseLock(lockKey, lockValue);
@@ -283,6 +286,7 @@ export class BookingService {
       );
     }
 
+    this.metrics.incrementBookings('cancelled');
     return { message: 'Booking cancelled successfully' };
   }
 

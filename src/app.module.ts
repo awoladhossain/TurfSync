@@ -15,6 +15,7 @@ import { RedisModule } from './redis/redis.module';
 import { TurfModule } from './turf/turf.module';
 import { PaymentModule } from './payment/payment.module';
 import { ReviewModule } from './review/review.module';
+import { MetricsModule } from './common/metrics/metrics.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -52,6 +53,7 @@ import { ReviewModule } from './review/review.module';
     HealthModule,
     PaymentModule,
     ReviewModule,
+    MetricsModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }, AppService],

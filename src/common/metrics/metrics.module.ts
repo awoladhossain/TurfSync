@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import {
   makeCounterProvider,
   makeGaugeProvider,
@@ -7,6 +7,7 @@ import {
 } from '@willsoto/nestjs-prometheus';
 import { MetricsService } from './metrics.service';
 
+@Global()
 @Module({
   imports: [
     PrometheusModule.register({

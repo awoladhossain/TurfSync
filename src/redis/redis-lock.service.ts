@@ -1,4 +1,5 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { MetricsService } from '@/common/metrics/metrics.service';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import Redis from 'ioredis';
 import { v4 as uuidv4 } from 'uuid';
 import { REDIS_CLIENT } from './redis.constants';
@@ -6,7 +7,10 @@ import { REDIS_CLIENT } from './redis.constants';
 @Injectable()
 export class RedisLockService {
   private readonly logger = new Logger(RedisLockService.name);
-  constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
+  constructor(
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    @Optional() private readonly metrics?: MetricsService,
+  ) {}
 
   private readonly RELEASE_LOCK_SCRIPT = `
   if redis.call('get', KEYS[1]) == ARGV[1] then
@@ -87,6 +91,11 @@ export class RedisLockService {
   async get<T>(key: string): Promise<T | null> {
     try {
       const data = await this.redis.get(key);
+      if (data) {
+        this.metrics?.incrementRedisCacheHits(key.split(':')[0]);
+      } else {
+        this.metrics?.incrementRedisCacheMisses(key.split(':')[0]);
+      }
       if (!data) return null;
       return JSON.parse(data) as T;
     } catch (error) {
