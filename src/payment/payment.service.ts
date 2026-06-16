@@ -1,3 +1,4 @@
+import { MetricsService } from '@/common/metrics/metrics.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { NOTIFICATION_QUEUE } from '@/queue/queue.constant';
 import { InjectQueue } from '@nestjs/bull';
@@ -33,6 +34,7 @@ export class PaymentService {
     private configService: ConfigService,
     @Inject(STRIPE_CLIENT) private stripe: Stripe.Stripe,
     @InjectQueue(NOTIFICATION_QUEUE) private notificationQueue: Queue,
+    private metrics: MetricsService,
   ) {}
 
   //  create payment Intent
@@ -231,6 +233,7 @@ export class PaymentService {
         );
       }
     });
+    this.metrics.incrementPayments('success');
   }
 
   // ─── Payment Failed ─────────────────────────────────
@@ -283,6 +286,7 @@ export class PaymentService {
         err,
       );
     }
+    this.metrics.incrementPayments('failed');
   }
 
   // ─── Payment Processing ─────────────────────────────
@@ -379,7 +383,7 @@ export class PaymentService {
     });
 
     this.logger.log(`Booking refunded: ${bookingId} | Refund ID: ${refund.id}`);
-
+    this.metrics.incrementPayments('refunded');
     return {
       message: 'Booking refunded successfully',
       refundId: refund.id,
