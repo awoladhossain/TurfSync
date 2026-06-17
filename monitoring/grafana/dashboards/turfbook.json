@@ -1,0 +1,65 @@
+{
+  "title": "TurfBook Dashboard",
+  "panels": [
+    {
+      "title": "Request Rate (RPS)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "rate(http_requests_total[1m])",
+          "legendFormat": "RPS"
+        }
+      ]
+    },
+    {
+      "title": "p95 Response Time",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+          "legendFormat": "p95 latency"
+        }
+      ]
+    },
+    {
+      "title": "Error Rate",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(http_requests_total{status_code=~'5..'}[5m])",
+          "legendFormat": "5xx errors"
+        }
+      ]
+    },
+    {
+      "title": "Bookings Created",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "bookings_total{status='created'}",
+          "legendFormat": "Total Bookings"
+        }
+      ]
+    },
+    {
+      "title": "Payment Success Rate",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "rate(payments_total{status='success'}[1h]) / rate(payments_total[1h]) * 100",
+          "legendFormat": "Success %"
+        }
+      ]
+    },
+    {
+      "title": "Redis Cache Hit Rate",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "rate(redis_cache_hits_total[5m]) / (rate(redis_cache_hits_total[5m]) + rate(redis_cache_misses_total[5m])) * 100",
+          "legendFormat": "Hit Rate %"
+        }
+      ]
+    }
+  ]
+}
