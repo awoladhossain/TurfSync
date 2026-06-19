@@ -8,6 +8,7 @@ import * as Sentry from '@sentry/node';
     {
       provide: 'SENTRY',
       useFactory: (configService: ConfigService) => {
+        // data source name
         const dsn = configService.get<string>('SENTRY_DSN');
 
         if (!dsn) {
