@@ -1,3 +1,4 @@
+import { MetricsService } from '@/common/metrics/metrics.service';
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
@@ -8,7 +9,7 @@ export class PrismaService
   extends PrismaClient
   implements OnModuleInit, OnModuleDestroy
 {
-  constructor() {
+  constructor(private readonly metrics: MetricsService) {
     const connectionString = process.env.DATABASE_URL;
 
     if (!connectionString) {
@@ -19,6 +20,30 @@ export class PrismaService
     const adapter = new PrismaPg(pool);
 
     super({ adapter });
+
+    const extended = this.$extends({
+      query: {
+        $allModels: {
+          async $allOperations({ model, operation, args, query }) {
+            const startTime = Date.now();
+            try {
+              return await query(args);
+            } finally {
+              const durationSeconds = (Date.now() - startTime) / 1000;
+              const queryType = `${model}.${operation}`;
+              metrics.observeDBQueryDuration(queryType, durationSeconds);
+            }
+          },
+        },
+      },
+    });
+
+    const extendedWithLifecycle = Object.assign(extended, {
+      onModuleInit: (): Promise<void> => this.onModuleInit(),
+      onModuleDestroy: (): Promise<void> => this.onModuleDestroy(),
+    });
+
+    return extendedWithLifecycle as unknown as PrismaService;
   }
 
   async onModuleInit() {
