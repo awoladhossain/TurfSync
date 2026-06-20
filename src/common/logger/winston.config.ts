@@ -8,14 +8,31 @@ export const winstonConfig = {
       format: format.combine(
         format.colorize(),
         format.printf((info) => {
-          const { timestamp, level, message, context } = info as {
-            timestamp: string;
-            level: string;
-            message: string;
+          const { timestamp, level, message, context, ...meta } = info as {
+            timestamp?: string;
+            level?: string;
+            message?: unknown;
             context?: string;
+            method?: string;
+            url?: string;
+            statusCode?: string | number;
+            duration?: string;
+            requestId?: string;
           };
 
-          return `${timestamp} [${context || 'Nest'}] ${level}: ${message}`;
+          let logMessage: unknown = message;
+
+          if (message === undefined) {
+            if (meta.method && meta.url) {
+              logMessage = `${meta.method} ${meta.url} ${meta.statusCode || ''} - ${meta.duration || ''} [reqId: ${meta.requestId || ''}]`;
+            } else {
+              logMessage = JSON.stringify(meta);
+            }
+          } else if (typeof message === 'object' && message !== null) {
+            logMessage = JSON.stringify(message);
+          }
+
+          return `${timestamp || ''} [${context || 'Nest'}] ${level || ''}: ${String(logMessage)}`;
         }),
       ),
     }),
