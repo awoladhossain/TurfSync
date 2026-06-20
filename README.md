@@ -11,6 +11,7 @@
 - [Project Structure](#project-structure)
 - [Installation](#installation)
 - [Running the Application](#running-the-application)
+- [Monitoring & Observability](#monitoring--observability)
 - [Testing](#testing)
 - [API Documentation](#api-documentation)
 - [Development Guidelines](#development-guidelines)
@@ -247,6 +248,42 @@ docker-compose logs -f
 # Stop services
 docker-compose down
 ```
+
+
+---
+
+## 📊 Monitoring & Observability
+
+TurfBook includes built-in support for real-time monitoring and observability using **Prometheus** and **Grafana**.
+
+### Services & Access URLs
+
+When running the application via Docker Compose, the following monitoring services are automatically started:
+
+| Service | Access URL | Default Credentials |
+|---------|------------|---------------------|
+| **Prometheus** | `http://localhost:9090` | *No auth required* |
+| **Grafana** | `http://localhost:3001` | **Username:** `admin` <br> **Password:** `admin123` |
+
+### Key Metrics Tracked
+
+The NestJS API exposes custom Prometheus metrics at `/api/metrics` (mapped to global prefix). These include:
+
+* **HTTP Request Metrics:**
+  * `http_requests_total` - Total HTTP requests tracked by method, route, and status code (visualized as **Request Rate / RPS**).
+  * `http_request_duration_seconds` - HTTP request latency histogram (visualized as **p95 Latency**).
+* **Database Metrics:**
+  * `db_query_duration_seconds` - PostgreSQL query duration histogram tracked using Prisma Client Extensions (visualized as **p95 Database Query Duration**).
+* **Cache Metrics:**
+  * `redis_cache_hits_total` / `redis_cache_misses_total` - Redis cache hits and misses tracked by cache type (visualized as **Redis Cache Hit Rate**).
+* **Business Metrics:**
+  * `bookings_total` - Total bookings tracked by status (`created`, `cancelled`, `completed`).
+  * `payments_total` - Total payments tracked by status (`success`, `failed`, `refunded`) (visualized as **Payment Success Rate**).
+  * `active_users_gauge` - Active users count gauge.
+
+### Provisioned Dashboards
+
+Grafana is pre-configured with a dashboard provider that automatically loads the **TurfBook Dashboard** from `monitoring/grafana/dashboards/turfbook.json`. The dashboard includes panels for RPS, p95 Latency, Error Rate, Bookings Created, Payment Success Rate, Redis Cache Hit Rate, and p95 Database Query Duration.
 
 ---
 
