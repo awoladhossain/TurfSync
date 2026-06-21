@@ -36,8 +36,8 @@ export class TurfService {
       // 2. loop over active turfs and generate slots for next 7 days
       for (let i = 0; i < 7; i++) {
         const targetDate = new Date(today); // create a copy of today's date for each iteration example: 2024-06-01
-        targetDate.setDate(today.getDate() + i); // add i days to today's date example: 2024-06-01 + 1 => 2024-06-02, 2024-06-01 + 2 => 2024-06-03
-        targetDate.setUTCHours(0, 0, 0, 0); // set time to 00:00:00 for accurate date comparison and UTC consistency example: 2024-06-02 00:00:00
+        targetDate.setUTCDate(today.getUTCDate() + i); // add i days to today's date using UTC
+        targetDate.setUTCHours(0, 0, 0, 0); // set time to 00:00:00 for accurate date comparison and UTC consistency
 
         // 3. generate slots for that turf and date
         await this.generateSlotsForDate(turf.id, targetDate);
@@ -46,7 +46,8 @@ export class TurfService {
 
     // 4. delete slots older than 30 days
     const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
+    thirtyDaysAgo.setUTCHours(0, 0, 0, 0);
     await this.prisma.slot.deleteMany({
       where: {
         date: {
@@ -117,7 +118,7 @@ export class TurfService {
     today.setUTCHours(0, 0, 0, 0); // set time to 00:00:00 for accurate date comparison and UTC consistency
     for (let i = 0; i < 7; i++) {
       const targetDate = new Date(today);
-      targetDate.setDate(targetDate.getDate() + i);
+      targetDate.setUTCDate(today.getUTCDate() + i);
       // for this turf generate slots
       await this.generateSlotsForDate(turf.id, targetDate);
     }
@@ -224,7 +225,18 @@ export class TurfService {
   async getAvailableSlots(turfId: string, date?: string) {
     let searchDate: Date;
     if (!date) {
-      searchDate = new Date();
+      const localToday = new Date();
+      searchDate = new Date(
+        Date.UTC(
+          localToday.getFullYear(),
+          localToday.getMonth(),
+          localToday.getDate(),
+          0,
+          0,
+          0,
+          0,
+        ),
+      );
     } else {
       searchDate = new Date(date);
       if (isNaN(searchDate.getTime())) {
@@ -232,8 +244,8 @@ export class TurfService {
           'Invalid date format. Expected YYYY-MM-DD.',
         );
       }
+      searchDate.setUTCHours(0, 0, 0, 0);
     }
-    searchDate.setUTCHours(0, 0, 0, 0);
     const dateStr = searchDate.toISOString().split('T')[0];
     const cacheKey = `slots:available:${turfId}:${dateStr}`;
 

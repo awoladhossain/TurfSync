@@ -56,16 +56,18 @@ export class BookingService {
   ): Promise<BookingWithIncludes> {
     // validation : past date check
     const bookingDate = new Date(dto.date);
+    bookingDate.setUTCHours(0, 0, 0, 0);
+
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setUTCHours(0, 0, 0, 0);
 
     if (bookingDate < today) {
       throw new BadRequestException(`Cannot book for past dates`);
     }
 
     // validation: max 30 days advance
-    const maxDate = new Date();
-    maxDate.setDate(maxDate.getDate() + 30);
+    const maxDate = new Date(today);
+    maxDate.setUTCDate(today.getUTCDate() + 30);
 
     if (bookingDate > maxDate) {
       throw new BadRequestException(`Cannot book more than 30 days in advance`);
