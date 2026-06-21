@@ -17,6 +17,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { QueueModule } from './queue/queue.module';
 import { RedisModule } from './redis/redis.module';
 import { ReviewModule } from './review/review.module';
+import { SentryModule } from './common/sentry/sentry.module';
 import { TurfModule } from './turf/turf.module';
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { TurfModule } from './turf/turf.module';
     PaymentModule,
     ReviewModule,
     MetricsModule,
+    SentryModule,
   ],
   controllers: [AppController],
   providers: [
