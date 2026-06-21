@@ -17,7 +17,7 @@ export class TurfService {
   constructor(
     private prisma: PrismaService,
     private redis: RedisLockService,
-  ) {}
+  ) { }
 
   // cron job to generate slots for next 7 days everyday at midnight and delete old slots older than 30 days
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
@@ -82,19 +82,25 @@ export class TurfService {
       const startTime = `${startHourNormalized.toString().padStart(2, '0')}:00`;
       const endTime = `${endHourNormalized.toString().padStart(2, '0')}:00`;
 
+      // If the hour is >= 24, the slot actually falls on the next calendar day
+      const slotDate = new Date(date);
+      if (currentHour >= 24) {
+        slotDate.setUTCDate(slotDate.getUTCDate() + 1);
+      }
+
       // 5. check if slot already exists for that turf, date and startTime, if not create it (upsert)
       await this.prisma.slot.upsert({
         where: {
           turfId_date_startTime: {
             turfId,
-            date,
+            date: slotDate,
             startTime,
           },
         }, // unique constraint on turfId + date + startTime
         update: {}, // if exists do nothing
         create: {
           turfId,
-          date,
+          date: slotDate,
           startTime,
           endTime,
         }, // if not exists create new slot
@@ -267,6 +273,13 @@ export class TurfService {
     if (!turf) {
       throw new ConflictException(`Turf with id "${turfId}" not found.`);
     }
+    let currentHour = parseInt(turf.openTime.split(':')[0]);
+    let endHour = parseInt(turf.closeTime.split(':')[0]);
+    if (endHour <= currentHour) {
+      endHour += 24;
+    }
+    const expectedSlotsCount = endHour - currentHour;
+
     let slots = await this.prisma.slot.findMany({
       where: {
         turfId,
@@ -275,7 +288,7 @@ export class TurfService {
       orderBy: { startTime: 'asc' },
     });
 
-    if (slots.length === 0) {
+    if (slots.length < expectedSlotsCount) {
       await this.generateSlotsForDate(turfId, searchDate);
       slots = await this.prisma.slot.findMany({
         where: {
