@@ -70,6 +70,7 @@ import { TurfModule } from './turf/turf.module';
       useClass: MetricsInterceptor,
     },
     AppService,
+
   ],
 })
 export class AppModule {}
