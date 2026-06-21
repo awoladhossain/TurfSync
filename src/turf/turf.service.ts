@@ -64,16 +64,23 @@ export class TurfService {
     if (!turf) return; // turf not found, skip
 
     // 2. open and close time, get the hours and generate slots for that date
-    // example: '09:00' => ['09', '00'] -> parseInt('09') => 9
-    let currentHour = parseInt(turf.openTime.split(':')[0]); // cyrrent hour = 9
-    const endHour = parseInt(turf.closeTime.split(':')[0]); //end hour = 12
+    // example: '09:00' => 9, '00:00' => 0
+    let currentHour = parseInt(turf.openTime.split(':')[0]);
+    let endHour = parseInt(turf.closeTime.split(':')[0]);
+
+    // Adjust endHour if it is midnight or past midnight (e.g. closeTime <= openTime)
+    if (endHour <= currentHour) {
+      endHour += 24;
+    }
 
     // 3. create slots by looping from open hour to close hour
     while (currentHour < endHour) {
-      // 4. startTime and endtime wise slot creation (padstart with 0 if single digit)
-      // example: 9 => '09:00', 10 => '10:00'
-      const startTime = `${currentHour.toString().padStart(2, '0')}:00`; // '09:00'
-      const endTime = `${(currentHour + 1).toString().padStart(2, '0')}:00`; // '10:00'
+      // 4. startTime and endtime wise slot creation (using modulo 24 to wrap around midnight)
+      const startHourNormalized = currentHour % 24;
+      const endHourNormalized = (currentHour + 1) % 24;
+
+      const startTime = `${startHourNormalized.toString().padStart(2, '0')}:00`;
+      const endTime = `${endHourNormalized.toString().padStart(2, '0')}:00`;
 
       // 5. check if slot already exists for that turf, date and startTime, if not create it (upsert)
       await this.prisma.slot.upsert({
@@ -92,7 +99,7 @@ export class TurfService {
           endTime,
         }, // if not exists create new slot
       });
-      currentHour++; // move to next hour example: 9 => 10 => 11
+      currentHour++;
     }
   }
 
@@ -260,13 +267,25 @@ export class TurfService {
     if (!turf) {
       throw new ConflictException(`Turf with id "${turfId}" not found.`);
     }
-    const slots = await this.prisma.slot.findMany({
+    let slots = await this.prisma.slot.findMany({
       where: {
         turfId,
         date: searchDate,
       },
       orderBy: { startTime: 'asc' },
     });
+
+    if (slots.length === 0) {
+      await this.generateSlotsForDate(turfId, searchDate);
+      slots = await this.prisma.slot.findMany({
+        where: {
+          turfId,
+          date: searchDate,
+        },
+        orderBy: { startTime: 'asc' },
+      });
+    }
+
     const result = { turf, slots, date: dateStr };
     await this.redis.set(cacheKey, result, 60); // cache for 1 minute
     return result;
