@@ -11,20 +11,19 @@ import { BookingModule } from './booking/booking.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { MetricsInterceptor } from './common/interceptors/metrics.interceptor';
 import { MetricsModule } from './common/metrics/metrics.module';
+import { SentryModule } from './common/sentry/sentry.module';
 import { HealthModule } from './health/health.module';
 import { PaymentModule } from './payment/payment.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { QueueModule } from './queue/queue.module';
 import { RedisModule } from './redis/redis.module';
 import { ReviewModule } from './review/review.module';
-import { SentryModule } from './common/sentry/sentry.module';
 import { TurfModule } from './turf/turf.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-
     // rate limiter module
     ThrottlerModule.forRoot([
       {

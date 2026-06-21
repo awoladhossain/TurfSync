@@ -6,7 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
-import * as Sentry from '@sentry/node';
+import * as Sentry from '@sentry/nestjs';
 import { Request, Response } from 'express';
 
 @Catch()
@@ -81,7 +81,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         url: request.url,
         ip: request.ip,
       });
-      Sentry.captureException(exception);
+      if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+        Sentry.captureException(exception);
+      }
     });
 
     response.status(status).json({
