@@ -17,7 +17,7 @@ export class TurfService {
   constructor(
     private prisma: PrismaService,
     private redis: RedisLockService,
-  ) { }
+  ) {}
 
   // cron job to generate slots for next 7 days everyday at midnight and delete old slots older than 30 days
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
@@ -273,7 +273,7 @@ export class TurfService {
     if (!turf) {
       throw new ConflictException(`Turf with id "${turfId}" not found.`);
     }
-    let currentHour = parseInt(turf.openTime.split(':')[0]);
+    const currentHour = parseInt(turf.openTime.split(':')[0]);
     let endHour = parseInt(turf.closeTime.split(':')[0]);
     if (endHour <= currentHour) {
       endHour += 24;
