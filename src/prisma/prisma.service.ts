@@ -9,6 +9,8 @@ export class PrismaService
   extends PrismaClient
   implements OnModuleInit, OnModuleDestroy
 {
+  private readonly pool: Pool;
+
   constructor(private readonly metrics: MetricsService) {
     const connectionString = process.env.DATABASE_URL;
 
@@ -21,6 +23,8 @@ export class PrismaService
 
     super({ adapter });
 
+    this.pool = pool;
+
     const extended = this.$extends({
       query: {
         $allModels: {
@@ -30,7 +34,7 @@ export class PrismaService
               return await query(args);
             } finally {
               const durationSeconds = (Date.now() - startTime) / 1000;
-              const queryType = `${model}.${operation}`;
+              const queryType = model ? `${model}.${operation}` : operation;
               metrics.observeDBQueryDuration(queryType, durationSeconds);
             }
           },
@@ -57,5 +61,6 @@ export class PrismaService
 
   async onModuleDestroy() {
     await this.$disconnect();
+    await this.pool.end();
   }
 }
