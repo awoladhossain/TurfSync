@@ -39,11 +39,29 @@ async function bootstrap() {
     .setTitle('TurfBook API Dashboard')
     .setDescription('Premium Turf Booking Application Backend Endpoints')
     .setVersion('1.0')
-    .addBearerAuth()
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'Login to get access to protected routes',
+      },
+      'JWT',
+    )
+    .addTag('Auth', 'Registration, Login, Token management')
+    .addTag('Turfs', 'Turf listing and management')
+    .addTag('Bookings', 'Slot booking and cancellation')
+    .addTag('Payments', 'Stripe payment integration')
+    .addTag('Admin', 'Admin only endpoints')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  SwaggerModule.setup('api/docs', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true, // keep the token after refresh
+    },
+  });
+
   const port = process.env.PORT || 3000;
   await app.listen(port);
   console.log(`TurfBook running on: http://localhost:${port}/api`);
