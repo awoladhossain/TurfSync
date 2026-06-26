@@ -20,6 +20,7 @@ import { RedisModule } from './redis/redis.module';
 import { ReviewModule } from './review/review.module';
 import { SlotModule } from './slot/slot.module';
 import { TurfModule } from './turf/turf.module';
+import { UploadModule } from './upload/upload.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -59,6 +60,7 @@ import { TurfModule } from './turf/turf.module';
     ReviewModule,
     MetricsModule,
     SentryModule,
+    UploadModule,
   ],
   controllers: [AppController],
   providers: [
