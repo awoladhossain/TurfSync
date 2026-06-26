@@ -13,11 +13,13 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { CreateTurfDto } from './dto/create-turf.dto';
 import { QueryTurfDto } from './dto/query-turf.dto';
 import { TurfService } from './turf.service';
 
+@ApiTags('Turfs')
 @Controller('turfs')
 export class TurfController {
   constructor(private turfService: TurfService) {}
@@ -40,6 +42,7 @@ export class TurfController {
     return this.turfService.getAvailableSlots(id, date);
   }
 
+  @ApiBearerAuth('JWT')
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
@@ -47,6 +50,7 @@ export class TurfController {
     return this.turfService.create(dto);
   }
 
+  @ApiBearerAuth('JWT')
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
@@ -57,6 +61,7 @@ export class TurfController {
     return this.turfService.update(id, dto);
   }
 
+  @ApiBearerAuth('JWT')
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)

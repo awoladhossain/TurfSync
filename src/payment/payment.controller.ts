@@ -13,14 +13,17 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { PaymentService } from './payment.service';
 
+@ApiTags('Payments')
 @Controller('payment')
 export class PaymentController {
   constructor(private paymentService: PaymentService) {}
 
   // payment intent
+  @ApiBearerAuth('JWT')
   @Post('create-payment-intent')
   @UseGuards(JwtAuthGuard)
   createPaymentIntent(
@@ -30,6 +33,7 @@ export class PaymentController {
     return this.paymentService.createPaymentIntent(dto, userId);
   }
   // payment status
+  @ApiBearerAuth('JWT')
   @Post('booking/:bookingId')
   @UseGuards(JwtAuthGuard)
   getStatus(
@@ -40,6 +44,7 @@ export class PaymentController {
   }
 
   // refund
+  @ApiBearerAuth('JWT')
   @Post('refund/:bookingId')
   @UseGuards(JwtAuthGuard)
   refund(

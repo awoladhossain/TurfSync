@@ -10,6 +10,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -23,6 +24,7 @@ interface RequestUser {
   role: string;
 }
 
+@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
@@ -46,6 +48,7 @@ export class AuthController {
   /**
    * user -> /auth/refrersh -> useguard ->
    */
+  @ApiBearerAuth('JWT')
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtRefreshGuard)
@@ -54,6 +57,7 @@ export class AuthController {
   }
 
   // * logout
+  @ApiBearerAuth('JWT')
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
@@ -62,6 +66,7 @@ export class AuthController {
   }
 
   // * logout all
+  @ApiBearerAuth('JWT')
   @Post('logout-all')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
@@ -70,6 +75,7 @@ export class AuthController {
   }
 
   // * get profile
+  @ApiBearerAuth('JWT')
   @Get('me')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
