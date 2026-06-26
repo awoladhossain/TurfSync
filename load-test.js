@@ -11,7 +11,7 @@ export const options = {
 };
 
 export default function () {
-  const baseUrl = __ENV.BASE_URL || 'http://localhost:3000';
+  const baseUrl = __ENV.BASE_URL || 'http://localhost:4000';
   const thresholdMs = parseInt(__ENV.THRESHOLD_MS || '500', 10);
   const url = `${baseUrl}/api/turfs`;
   const res = http.get(url);

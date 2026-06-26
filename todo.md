@@ -69,7 +69,7 @@ Below is the categorized checklist of all 28 issues reviewed in the codebase. It
   - **Description:** `memoryCost: 65536` (64MB) and `timeCost: 3` is computationally heavy for low-end containers/servers, causing a slow auth pipeline that could be exploited as a denial-of-service (DoS) vector.
   - **Proposed Fix:** Optimize configuration (e.g., `memoryCost: 19456`, `timeCost: 2`, `parallelism: 1`) to strike a balance between security and throughput.
 
-- [ ] **13. Dockerfile Port Mismatch**
+- [x] **13. Dockerfile Port Mismatch**
   - **Files:** `Dockerfile` (EXPOSE 4000) vs `src/main.ts` (PORT 3000 default)
   - **Description:** `Dockerfile` exposes `4000`, but if the container runs without a `PORT` environment variable explicitly set, the NestJS application defaults to port `3000`, causing port mapping issues.
   - **Proposed Fix:** Set the default port in `main.ts` to `4000` or handle it gracefully.
