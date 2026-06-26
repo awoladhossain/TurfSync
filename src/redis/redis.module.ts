@@ -20,7 +20,13 @@ import { REDIS_CLIENT } from './redis.constants';
       useFactory: (configService: ConfigService) => {
         const logger = new Logger('RedisClient');
         const redisUrl = configService.get<string>('REDIS_URL');
-        const redisPassword = configService.get<string>('REDIS_PASSWORD');
+        const rawPassword = configService.get<string>('REDIS_PASSWORD');
+        const redisPassword =
+          rawPassword &&
+          rawPassword !== 'your-redis-password-here' &&
+          rawPassword.trim() !== ''
+            ? rawPassword
+            : undefined;
         const useTls = configService.get<string>('REDIS_TLS') === 'true';
 
         let client: Redis;
@@ -61,7 +67,7 @@ import { REDIS_CLIENT } from './redis.constants';
         } else if (redisUrl) {
           logger.log(`Initializing Redis Client with URL`);
           client = new Redis(redisUrl, {
-            password: redisPassword || undefined,
+            password: redisPassword,
             tls: useTls || redisUrl.startsWith('rediss://') ? {} : undefined,
             retryStrategy,
           });
@@ -70,7 +76,7 @@ import { REDIS_CLIENT } from './redis.constants';
           client = new Redis({
             host: configService.get('REDIS_HOST', 'localhost'),
             port: configService.get('REDIS_PORT', 6379),
-            password: redisPassword || undefined,
+            password: redisPassword,
             tls: useTls ? {} : undefined,
             retryStrategy,
           });
