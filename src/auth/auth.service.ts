@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import * as argon2 from 'argon2';
 import { createHash, randomUUID } from 'crypto';
 import { LoginDto } from './dto/login.dto';
@@ -180,5 +181,18 @@ export class AuthService {
     });
 
     return { accessToken, refreshToken }; // give the original refresh token to the client, not the hashed one
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async cleanupExpiredTokens() {
+    const now = new Date();
+    const { count } = await this.prisma.refreshToken.deleteMany({
+      where: {
+        expiresAt: {
+          lt: now,
+        },
+      },
+    });
+    this.logger.log(`🗑️ Cleaned up ${count} expired refresh tokens`);
   }
 }

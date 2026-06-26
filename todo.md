@@ -129,7 +129,7 @@ Below is the categorized checklist of all 28 issues reviewed in the codebase. It
   - **Files:** `README.md`
   - **Description:** Document the global setup of `ValidationPipe` for clarity.
 
-- [ ] **25. Refresh Token Cleanup Not Scheduled**
+- [x] **25. Refresh Token Cleanup Not Scheduled**
   - **Files:** `src/auth/auth.service.ts`
   - **Description:** Expired refresh tokens accumulate in the `refresh_tokens` database table with no routine cleanup task.
   - **Proposed Fix:** Implement a scheduled cron job to regularly delete expired tokens where `expiresAt < now()`.

@@ -163,4 +163,25 @@ describe('AuthService', () => {
       ).rejects.toThrow(UnauthorizedException);
     });
   });
+
+  describe('cleanupExpiredTokens', () => {
+    it('should delete expired tokens and log the count', async () => {
+      mockPrismaService.refreshToken.deleteMany.mockResolvedValue({ count: 5 });
+      const loggerSpy = jest.spyOn(service['logger'], 'log');
+
+      await service.cleanupExpiredTokens();
+
+      expect(mockPrismaService.refreshToken.deleteMany).toHaveBeenCalledWith({
+        where: {
+          expiresAt: {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            lt: expect.any(Date),
+          },
+        },
+      });
+      expect(loggerSpy).toHaveBeenCalledWith(
+        '🗑️ Cleaned up 5 expired refresh tokens',
+      );
+    });
+  });
 });
