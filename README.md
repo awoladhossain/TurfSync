@@ -41,6 +41,11 @@ TurfBook is a backend REST API designed to facilitate turf (sports ground) booki
 | **Language** | TypeScript |
 | **Database** | PostgreSQL |
 | **ORM** | Prisma |
+| **Caching & Locking** | Redis (ioredis) |
+| **Queueing** | Bull (Redis-backed) |
+| **Storage** | Cloudinary |
+| **Email Gateway** | Nodemailer (with Handlebars template engine) |
+| **SMS Gateway** | Twilio |
 | **Validation** | class-validator, class-transformer |
 | **Testing** | Jest |
 | **Code Quality** | ESLint, Prettier |
@@ -56,10 +61,13 @@ TurfBook is a backend REST API designed to facilitate turf (sports ground) booki
 - **Atomic Booking Logic** - Prevents double booking using PostgreSQL transactions
 - **Real-time Slot Management** - Dynamic availability tracking with instant status updates
 - **User Authentication** - Secure session management with configuration-based settings
+- **Image Upload Integration** - Multi-file image uploading backed by Cloudinary
+- **Notifications Integration** - Automated, templated Email alerts and SMS dispatches (via Twilio)
+- **Coupon Management** - Discount coupon generation, validation, and usage
 - **Request Validation** - Type-safe DTO validation with class-validator
 
 ### Technical Highlights
-- **Modular Architecture** - Clean separation of concerns with independent modules
+- **Modular Architecture** - Clean separation of concerns with independent modules (Auth, Admin, Turf, Slot, Booking, Payment, Coupon, Upload, Mail, SMS)
 - **Error Handling** - Comprehensive exception handling with custom error responses
 - **Testing Coverage** - Unit tests and E2E tests with Jest
 - **Development Experience** - Hot reload, debug mode, and watch mode support
@@ -359,9 +367,15 @@ GET /api/health
 
 ### Available Endpoints (Grouped in Swagger)
 - **Auth** - User registration, login, logout, and token refresh
+- **Admin** - Admin dashboard metrics, user lists, and slot manual override
 - **Turfs** - Turf listing, details, creation, updating, and removal
+- **Slots** - Time slot listings, bulk generation, and cleanups
 - **Bookings** - Slot booking, listing, details, and cancellation
 - **Payments** - Stripe payment intent creation, status checks, and refunds
+- **Coupons** - Discount coupon creation, lists, validation, and usage
+- **Uploads** - Cloudinary-backed file and image uploading services
+- **Mail** - Automated template-based email notifications
+- **SMS** - Notification SMS dispatching services
 
 ---
 
