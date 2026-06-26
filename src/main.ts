@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import { WinstonModule } from 'nest-winston';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
+import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 import { winstonConfig } from './common/logger/winston.config';
 
 async function bootstrap() {
@@ -17,7 +18,10 @@ async function bootstrap() {
 
   // global prefix for all routes
   app.setGlobalPrefix('api');
-  app.useGlobalFilters(new GlobalExceptionFilter());
+  app.useGlobalFilters(
+    new GlobalExceptionFilter(),
+    new PrismaExceptionFilter(),
+  );
 
   // validation pipe for all incoming requests
   app.useGlobalPipes(

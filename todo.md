@@ -83,7 +83,7 @@ Below is the categorized checklist of all 28 issues reviewed in the codebase. It
   - **Status:** Resolved
   - **Verification:** Replaced local date methods (`getDate()`, `setDate()`) with pure UTC methods (`getUTCDate()`, `setUTCDate()`, `setUTCHours()`) for slot auto-generation, slot expiration/cleanup, and booking date validation arithmetic to ensure full timezone independence.
 
-- [ ] **16. Prisma-Specific Error Handling Missing**
+- [x] **16. Prisma-Specific Error Handling Missing**
   - **Files:** Scattered across services / `GlobalExceptionFilter`
   - **Description:** Uncaught Prisma errors (e.g., record not found, uniqueness violations) bubble up to the global filter and return generic 500 "Internal server error" messages instead of proper HTTP status codes.
   - **Proposed Fix:** Build a dedicated exception filter/logic for Prisma error mapping (e.g., mapping P2025 to 404, P2002 to 409).
