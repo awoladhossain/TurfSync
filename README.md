@@ -337,6 +337,16 @@ npm run lint
 
 ## 🔌 API Documentation
 
+The project includes interactive API documentation powered by Swagger (OpenAPI).
+
+### Swagger UI
+When the application is running, the interactive documentation is available at:
+* **URL:** `http://localhost:3000/api/docs`
+* **Features:**
+  * Interactive endpoint exploration and testing
+  * Real-time query and request execution
+  * Persistent JWT Bearer Authorization (click the **Authorize** button at the top or on individual endpoints and enter your JWT to access protected routes)
+
 ### Base URL
 ```
 http://localhost:3000/api
@@ -344,17 +354,14 @@ http://localhost:3000/api
 
 ### Health Check
 ```http
-GET /health
+GET /api/health
 ```
 
-### Available Endpoints
-- **Authentication** - User login, logout, token refresh
-- **Users** - User profile management
-- **Turfs** - Turf listing, details, search
-- **Slots** - Availability management
-- **Bookings** - Create, retrieve, cancel bookings
-
-> Full API documentation will be available via Swagger/OpenAPI (implementation pending)
+### Available Endpoints (Grouped in Swagger)
+- **Auth** - User registration, login, logout, and token refresh
+- **Turfs** - Turf listing, details, creation, updating, and removal
+- **Bookings** - Slot booking, listing, details, and cancellation
+- **Payments** - Stripe payment intent creation, status checks, and refunds
 
 ---
 
