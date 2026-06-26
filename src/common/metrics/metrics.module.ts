@@ -40,6 +40,11 @@ import { MetricsService } from './metrics.service';
       labelNames: ['status'],
     }),
     makeCounterProvider({
+      name: 'booking_conflicts_total',
+      help: 'Total booking conflict attempts or lock failures',
+      labelNames: ['reason'],
+    }),
+    makeCounterProvider({
       name: 'payments_total',
       help: 'Total payments by status',
       labelNames: ['status'],

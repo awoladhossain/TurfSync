@@ -36,6 +36,7 @@ const mockQueue = {
 
 const mockMetricsService = {
   incrementBookings: jest.fn(),
+  incrementBookingConflicts: jest.fn(),
 };
 
 describe('BookingService', () => {

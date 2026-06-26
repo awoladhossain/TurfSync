@@ -134,7 +134,7 @@ Below is the categorized checklist of all 28 issues reviewed in the codebase. It
   - **Description:** Expired refresh tokens accumulate in the `refresh_tokens` database table with no routine cleanup task.
   - **Proposed Fix:** Implement a scheduled cron job to regularly delete expired tokens where `expiresAt < now()`.
 
-- [ ] **26. No Observability for Failed Bookings**
+- [x] **26. No Observability for Failed Bookings**
   - **Description:** No metrics tracking booking conflict attempts or lock failures.
   - **Proposed Fix:** Add a counter metric (e.g., `booking_conflicts_total`) to monitor concurrency issues.
 

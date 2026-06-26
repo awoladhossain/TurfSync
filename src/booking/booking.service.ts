@@ -77,6 +77,7 @@ export class BookingService {
     const lockKey = `slot:${dto.slotId}`;
     const lockValue = await this.redis.acquireLock(lockKey, 30);
     if (!lockValue) {
+      this.metrics.incrementBookingConflicts('lock_failure');
       throw new BadRequestException(
         `Slot is currently being booked by another user. Please try again.`,
       );
@@ -109,6 +110,7 @@ export class BookingService {
           }
 
           if (slot.isBooked) {
+            this.metrics.incrementBookingConflicts('slot_already_booked');
             throw new BadRequestException(`Slot is already booked`);
           }
 
@@ -121,6 +123,7 @@ export class BookingService {
           });
 
           if (existingBooking) {
+            this.metrics.incrementBookingConflicts('user_already_booked');
             throw new ConflictException(`You have already booked this slot`);
           }
 

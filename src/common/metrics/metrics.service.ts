@@ -30,6 +30,9 @@ export class MetricsService {
 
     @InjectMetric('db_query_duration_seconds')
     private readonly dbQueryDuration: Histogram<string>,
+
+    @InjectMetric('booking_conflicts_total')
+    private readonly bookingConflictsTotal: Counter<string>,
   ) {}
 
   // Http tracking
@@ -58,6 +61,12 @@ export class MetricsService {
 
   incrementBookings(status: 'created' | 'cancelled' | 'completed') {
     this.bookingTotal.inc({ status });
+  }
+
+  incrementBookingConflicts(
+    reason: 'lock_failure' | 'slot_already_booked' | 'user_already_booked',
+  ) {
+    this.bookingConflictsTotal.inc({ reason });
   }
 
   incrementPayments(status: 'success' | 'failed' | 'refunded') {
