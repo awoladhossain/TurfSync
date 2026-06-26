@@ -1,12 +1,12 @@
 import { PrismaService } from '@/prisma/prisma.service';
 import { RedisLockService } from '@/redis/redis-lock.service';
+import { SlotService } from '@/slot/slot.service';
 import {
   BadRequestException,
   ConflictException,
   Injectable,
   Logger,
 } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
 import { CreateTurfDto } from './dto/create-turf.dto';
 import { QueryTurfDto } from './dto/query-turf.dto';
@@ -17,97 +17,10 @@ export class TurfService {
   constructor(
     private prisma: PrismaService,
     private redis: RedisLockService,
+    private slotService: SlotService,
   ) {}
 
-  // cron job to generate slots for next 7 days everyday at midnight and delete old slots older than 30 days
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
-  async handleDailySlotGeneration() {
-    this.logger.log('Starting daily slot generation task');
 
-    // 1. active turfs find out from the db
-    const activeTurfs = await this.prisma.turf.findMany({
-      where: { isActive: true },
-    });
-
-    const today = new Date(); // today date example: 2024-06-01
-    today.setUTCHours(0, 0, 0, 0); // set time to 00:00:00 for accurate date comparison
-
-    for (const turf of activeTurfs) {
-      // 2. loop over active turfs and generate slots for next 7 days
-      for (let i = 0; i < 7; i++) {
-        const targetDate = new Date(today); // create a copy of today's date for each iteration example: 2024-06-01
-        targetDate.setUTCDate(today.getUTCDate() + i); // add i days to today's date using UTC
-        targetDate.setUTCHours(0, 0, 0, 0); // set time to 00:00:00 for accurate date comparison and UTC consistency
-
-        // 3. generate slots for that turf and date
-        await this.generateSlotsForDate(turf.id, targetDate);
-      }
-    }
-
-    // 4. delete slots older than 30 days
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
-    thirtyDaysAgo.setUTCHours(0, 0, 0, 0);
-    await this.prisma.slot.deleteMany({
-      where: {
-        date: {
-          lt: thirtyDaysAgo,
-        },
-      },
-    });
-    this.logger.log('slot generation and cleanup completed');
-  }
-
-  async generateSlotsForDate(turfId: string, date: Date) {
-    // 1. find out the turf from the db
-    const turf = await this.prisma.turf.findUnique({ where: { id: turfId } });
-    if (!turf) return; // turf not found, skip
-
-    // 2. open and close time, get the hours and generate slots for that date
-    // example: '09:00' => 9, '00:00' => 0
-    let currentHour = parseInt(turf.openTime.split(':')[0]);
-    let endHour = parseInt(turf.closeTime.split(':')[0]);
-
-    // Adjust endHour if it is midnight or past midnight (e.g. closeTime <= openTime)
-    if (endHour <= currentHour) {
-      endHour += 24;
-    }
-
-    // 3. create slots by looping from open hour to close hour
-    while (currentHour < endHour) {
-      // 4. startTime and endtime wise slot creation (using modulo 24 to wrap around midnight)
-      const startHourNormalized = currentHour % 24;
-      const endHourNormalized = (currentHour + 1) % 24;
-
-      const startTime = `${startHourNormalized.toString().padStart(2, '0')}:00`;
-      const endTime = `${endHourNormalized.toString().padStart(2, '0')}:00`;
-
-      // If the hour is >= 24, the slot actually falls on the next calendar day
-      const slotDate = new Date(date);
-      if (currentHour >= 24) {
-        slotDate.setUTCDate(slotDate.getUTCDate() + 1);
-      }
-
-      // 5. check if slot already exists for that turf, date and startTime, if not create it (upsert)
-      await this.prisma.slot.upsert({
-        where: {
-          turfId_date_startTime: {
-            turfId,
-            date: slotDate,
-            startTime,
-          },
-        }, // unique constraint on turfId + date + startTime
-        update: {}, // if exists do nothing
-        create: {
-          turfId,
-          date: slotDate,
-          startTime,
-          endTime,
-        }, // if not exists create new slot
-      });
-      currentHour++;
-    }
-  }
 
   // create - with duplicate check and cache invalidation
   async create(dto: CreateTurfDto) {
@@ -127,14 +40,7 @@ export class TurfService {
     });
 
     // generate slots for next 7 days for the newly created turf
-    const today = new Date(); // get today's date
-    today.setUTCHours(0, 0, 0, 0); // set time to 00:00:00 for accurate date comparison and UTC consistency
-    for (let i = 0; i < 7; i++) {
-      const targetDate = new Date(today);
-      targetDate.setUTCDate(today.getUTCDate() + i);
-      // for this turf generate slots
-      await this.generateSlotsForDate(turf.id, targetDate);
-    }
+    await this.slotService.generateForTurf(turf.id, 6);
     await this.redis.delByPattern(`turf:list:*`);
     return turf;
   }
@@ -289,7 +195,7 @@ export class TurfService {
     });
 
     if (slots.length < expectedSlotsCount) {
-      await this.generateSlotsForDate(turfId, searchDate);
+      await this.slotService.generateTurfSlots(turf, searchDate);
       slots = await this.prisma.slot.findMany({
         where: {
           turfId,

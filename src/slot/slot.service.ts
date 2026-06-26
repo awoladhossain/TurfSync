@@ -7,7 +7,7 @@ import { Prisma, Turf } from '@prisma/client';
 export class SlotService {
   private readonly logger = new Logger(SlotService.name);
 
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async generateDailySlots() {
@@ -48,7 +48,7 @@ export class SlotService {
     }
   }
 
-  private async generateTurfSlots(turf: Turf, date: Date) {
+  async generateTurfSlots(turf: Turf, date: Date) {
     const openHour = parseInt(turf.openTime.split(':')[0]);
     const closeHour = parseInt(turf.closeTime.split(':')[0]);
 
