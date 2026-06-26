@@ -83,8 +83,7 @@ export class RedisLockService {
         await this.redis.set(key, serialized);
       }
     } catch (error) {
-      this.logger.error(`Error serializing data for key: ${key}`, error);
-      throw error;
+      this.logger.error(`Failed to set cache key ${key}:`, error);
     }
   }
 
@@ -105,31 +104,39 @@ export class RedisLockService {
   }
 
   async del(key: string): Promise<void> {
-    await this.redis.del(key);
+    try {
+      await this.redis.del(key);
+    } catch (error) {
+      this.logger.error(`Failed to delete cache key ${key}:`, error);
+    }
   }
 
   async delByPattern(pattern: string): Promise<void> {
-    let cursor = '0';
+    try {
+      let cursor = '0';
 
-    do {
-      // database scan - to find keys matching the pattern
-      const [nextCursor, keys] = await this.redis.scan(
-        cursor,
-        'MATCH',
-        pattern,
-        'COUNT',
-        100,
-      );
-      cursor = nextCursor;
-
-      if (keys.length > 0) {
-        const pipeline = this.redis.pipeline();
-        pipeline.del(...keys);
-        await pipeline.exec();
-        this.logger.log(
-          `Deleted ${keys.length} keys matching pattern: ${pattern}`,
+      do {
+        // database scan - to find keys matching the pattern
+        const [nextCursor, keys] = await this.redis.scan(
+          cursor,
+          'MATCH',
+          pattern,
+          'COUNT',
+          100,
         );
-      }
-    } while (cursor !== '0');
+        cursor = nextCursor;
+
+        if (keys.length > 0) {
+          const pipeline = this.redis.pipeline();
+          pipeline.del(...keys);
+          await pipeline.exec();
+          this.logger.log(
+            `Deleted ${keys.length} keys matching pattern: ${pattern}`,
+          );
+        }
+      } while (cursor !== '0');
+    } catch (error) {
+      this.logger.error(`Failed to delete keys by pattern ${pattern}:`, error);
+    }
   }
 }

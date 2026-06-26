@@ -115,17 +115,17 @@ Below is the categorized checklist of all 28 issues reviewed in the codebase. It
 
 ## 🔵 LOWER PRIORITY ISSUES (Edge Cases & Improvements)
 
-- [ ] **22. Load Test Thresholds Unrealistic**
+- [x] **22. Load Test Thresholds Unrealistic**
   - **Files:** `load-test.js`
   - **Description:** Hardcoded localhost endpoint and an aggressive <200ms duration assertion.
   - **Proposed Fix:** Parameterize URL/host and use realistic thresholds (e.g. 500ms+) for remote/staging test environments.
 
-- [ ] **23. No Graceful Degradation / Circuit Breakers**
+- [x] **23. No Graceful Degradation / Circuit Breakers**
   - **Files:** `src/redis/redis-lock.service.ts` (`set`)
   - **Description:** Cache writing errors throw exceptions directly, causing API requests to fail with a 500 even if the underlying database operations succeeded.
   - **Proposed Fix:** Wrap cache writes in a try/catch block to log the error but allow the request to proceed successfully (degrade gracefully).
 
-- [ ] **24. Missing Global Validation Pipe Mention**
+- [x] **24. Missing Global Validation Pipe Mention**
   - **Files:** `README.md`
   - **Description:** Document the global setup of `ValidationPipe` for clarity.
 

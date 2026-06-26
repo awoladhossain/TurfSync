@@ -399,6 +399,12 @@ GET /api/health
 6. **Documentation** - Add JSDoc comments for complex logic
 7. **Transactions** - Use database transactions for critical operations
 
+### Global Validation Pipe
+All incoming HTTP requests are validated globally via a NestJS `ValidationPipe` configured in `src/main.ts` with:
+- **`whitelist: true`**: Automatically strips any properties from the request body that do not have a validation decorator in the associated DTO.
+- **`forbidNonWhitelisted: true`**: Throws an HTTP 400 Bad Request if any properties not present in the whitelist are provided.
+- **`transform: true`**: Automatically transforms incoming plain payloads into typed instances of their corresponding DTO classes (e.g., converting numeric strings to numbers).
+
 ### Creating a New Module
 ```bash
 nest generate module features/users

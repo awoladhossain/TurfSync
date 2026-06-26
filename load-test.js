@@ -11,11 +11,14 @@ export const options = {
 };
 
 export default function () {
-  const url = 'http://localhost:3000/api/turfs';
+  const baseUrl = __ENV.BASE_URL || 'http://localhost:3000';
+  const thresholdMs = parseInt(__ENV.THRESHOLD_MS || '500', 10);
+  const url = `${baseUrl}/api/turfs`;
   const res = http.get(url);
   check(res, {
     'status is 200': (r) => r.status === 200,
-    'transaction time < 200ms': (r) => r.timings.duration < 200,
+    [`transaction time < ${thresholdMs}ms`]: (r) =>
+      r.timings.duration < thresholdMs,
   });
   sleep(1);
 }
