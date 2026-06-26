@@ -1,5 +1,7 @@
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { ParseUUIDPipe } from '@/common/pipes/parse-uuid.pipe';
+import type { RawBodyRequest } from '@nestjs/common';
 import {
   Body,
   Controller,
@@ -11,7 +13,6 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import type { RawBodyRequest } from '@nestjs/common';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { PaymentService } from './payment.service';
 
@@ -24,7 +25,7 @@ export class PaymentController {
   @UseGuards(JwtAuthGuard)
   createPaymentIntent(
     @Body() dto: CreatePaymentDto,
-    @CurrentUser('id') userId: string,
+    @CurrentUser('id', ParseUUIDPipe) userId: string,
   ) {
     return this.paymentService.createPaymentIntent(dto, userId);
   }
@@ -32,8 +33,8 @@ export class PaymentController {
   @Post('booking/:bookingId')
   @UseGuards(JwtAuthGuard)
   getStatus(
-    @Param('bookingId') bookingId: string,
-    @CurrentUser('id') userId: string,
+    @Param('bookingId', ParseUUIDPipe) bookingId: string,
+    @CurrentUser('id', ParseUUIDPipe) userId: string,
   ) {
     return this.paymentService.getPaymentStatus(bookingId, userId);
   }
@@ -42,8 +43,8 @@ export class PaymentController {
   @Post('refund/:bookingId')
   @UseGuards(JwtAuthGuard)
   refund(
-    @Param('bookingId') bookingId: string,
-    @CurrentUser('id') userId: string,
+    @Param('bookingId', ParseUUIDPipe) bookingId: string,
+    @CurrentUser('id', ParseUUIDPipe) userId: string,
   ) {
     return this.paymentService.refund(bookingId, userId);
   }
