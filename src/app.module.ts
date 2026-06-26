@@ -24,6 +24,7 @@ import { UploadModule } from './upload/upload.module';
 import { MailModule } from './mail/mail.module';
 import { AdminModule } from './admin/admin.module';
 import { CouponModule } from './coupon/coupon.module';
+import { SmsModule } from './sms/sms.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -67,6 +68,7 @@ import { CouponModule } from './coupon/coupon.module';
     MailModule,
     AdminModule,
     CouponModule,
+    SmsModule,
   ],
   controllers: [AppController],
   providers: [
