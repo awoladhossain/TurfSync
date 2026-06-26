@@ -25,12 +25,13 @@ describe('RequestIdMiddleware', () => {
       nextFunction,
     );
 
-    expect(mockRequest['requestId']).toBeDefined();
-    expect(typeof mockRequest['requestId']).toBe('string');
-    expect(mockRequest['requestId'].length).toBeGreaterThan(0);
+    const requestId = mockRequest['requestId'] as string;
+    expect(requestId).toBeDefined();
+    expect(typeof requestId).toBe('string');
+    expect(requestId.length).toBeGreaterThan(0);
     expect(mockResponse.setHeader).toHaveBeenCalledWith(
       'X-Request-Id',
-      mockRequest['requestId'],
+      requestId,
     );
     expect(nextFunction).toHaveBeenCalled();
   });
