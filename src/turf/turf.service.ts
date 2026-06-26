@@ -6,6 +6,7 @@ import {
   ConflictException,
   Injectable,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { CreateTurfDto } from './dto/create-turf.dto';
@@ -100,7 +101,7 @@ export class TurfService {
       where: { id },
     });
     if (!turf) {
-      throw new ConflictException(`Turf with id "${id}" not found.`);
+      throw new NotFoundException(`Turf with id "${id}" not found.`);
     }
     await this.redis.set(cacheKey, turf, 300); // cache for 5 minutes
     return turf;
@@ -111,7 +112,7 @@ export class TurfService {
       where: { id },
     });
     if (!existingTurf) {
-      throw new ConflictException(`Turf with id "${id}" not found.`);
+      throw new NotFoundException(`Turf with id "${id}" not found.`);
     }
     const turf = await this.prisma.turf.update({
       where: { id },
@@ -127,7 +128,7 @@ export class TurfService {
       where: { id },
     });
     if (!existingTurf) {
-      throw new ConflictException(`Turf with id "${id}" not found.`);
+      throw new NotFoundException(`Turf with id "${id}" not found.`);
     }
     await this.prisma.turf.update({
       where: { id },
@@ -175,7 +176,7 @@ export class TurfService {
       where: { id: turfId },
     });
     if (!turf) {
-      throw new ConflictException(`Turf with id "${turfId}" not found.`);
+      throw new NotFoundException(`Turf with id "${turfId}" not found.`);
     }
     const currentHour = parseInt(turf.openTime.split(':')[0]);
     let endHour = parseInt(turf.closeTime.split(':')[0]);

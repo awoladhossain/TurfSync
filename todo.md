@@ -37,7 +37,7 @@ Below is the categorized checklist of all 28 issues reviewed in the codebase. It
 
 ## 🟠 HIGH PRIORITY ISSUES
 
-- [ ] **7. Wrong Exception Type — ConflictException vs NotFoundException**
+- [x] **7. Wrong Exception Type — ConflictException vs NotFoundException**
   - **Files:** `src/turf/turf.service.ts` (lines 185, 213, 249)
   - **Description:** Using `ConflictException` (HTTP 409) when a turf or slot resource is not found, instead of `NotFoundException` (HTTP 404).
   - **Proposed Fix:** Replace with `NotFoundException` for resource-not-found situations.
