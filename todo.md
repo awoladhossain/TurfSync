@@ -47,7 +47,7 @@ Below is the categorized checklist of all 28 issues reviewed in the codebase. It
   - **Description:** `findAll` in the controller parses page/limit query params using `+page` and `+limit` but does not perform range or format validation (e.g., preventing negative or huge limits). `findMyBookings` in the controller does not accept pagination query params at all, although the service does.
   - **Proposed Fix:** Introduce standard pagination DTO validation or extend `PaginationDto`.
 
-- [ ] **9. Redis Single Point of Failure (SPOF)**
+- [x] **9. Redis Single Point of Failure (SPOF)**
   - **Files:** `src/redis/redis.module.ts`
   - **Description:** Redis module connects to a single host/port with no high-availability, Sentinel/Cluster setup, or TLS/password authentication in production environments.
   - **Proposed Fix:** Configure high-availability support, TLS, and proper environment authentication.

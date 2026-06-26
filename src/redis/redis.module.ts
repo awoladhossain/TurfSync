@@ -19,17 +19,63 @@ import { REDIS_CLIENT } from './redis.constants';
       provide: REDIS_CLIENT,
       useFactory: (configService: ConfigService) => {
         const logger = new Logger('RedisClient');
-        const client = new Redis({
-          host: configService.get('REDIS_HOST', 'localhost'), // Default to 'localhost' if REDIS_HOST is not set
-          port: configService.get('REDIS_PORT', 6379), // Default to 6379 if REDIS_PORT is not set
-          retryStrategy: (times) => {
-            const delay = Math.min(times * 50, 2000);
-            logger.warn(
-              `Redis connection lost. Attempting to reconnect... (attempt ${times}, retrying in ${delay}ms)`,
-            );
-            return delay;
-          }, // Retry strategy with exponential backoff
-        });
+        const redisUrl = configService.get<string>('REDIS_URL');
+        const redisPassword = configService.get<string>('REDIS_PASSWORD');
+        const useTls = configService.get<string>('REDIS_TLS') === 'true';
+
+        let client: Redis;
+
+        const retryStrategy = (times: number) => {
+          const delay = Math.min(times * 50, 2000);
+          logger.warn(
+            `Redis connection lost. Attempting to reconnect... (attempt ${times}, retrying in ${delay}ms)`,
+          );
+          return delay;
+        };
+
+        const sentinelHosts = configService.get<string>('REDIS_SENTINEL_HOSTS');
+        const sentinelName = configService.get<string>(
+          'REDIS_SENTINEL_NAME',
+          'mymaster',
+        );
+
+        if (sentinelHosts) {
+          const sentinels = sentinelHosts.split(',').map((hostPort) => {
+            const [host, port] = hostPort.trim().split(':');
+            return { host, port: parseInt(port || '26379', 10) };
+          });
+
+          logger.log(
+            `Initializing Redis Client with Sentinels: ${JSON.stringify(sentinels)}`,
+          );
+          client = new Redis({
+            sentinels,
+            name: sentinelName,
+            password: redisPassword,
+            sentinelPassword: configService.get<string>(
+              'REDIS_SENTINEL_PASSWORD',
+            ),
+            tls: useTls ? {} : undefined,
+            retryStrategy,
+          });
+        } else if (redisUrl) {
+          logger.log(`Initializing Redis Client with URL`);
+          client = new Redis(redisUrl, {
+            password: redisPassword || undefined,
+            tls: useTls || redisUrl.startsWith('rediss://') ? {} : undefined,
+            retryStrategy,
+          });
+        } else {
+          logger.log(`Initializing Redis Client with Host/Port`);
+          client = new Redis({
+            host: configService.get('REDIS_HOST', 'localhost'),
+            port: configService.get('REDIS_PORT', 6379),
+            password: redisPassword || undefined,
+            tls: useTls ? {} : undefined,
+            retryStrategy,
+          });
+        }
+
         client.on('error', (err) => {
           logger.error(`Redis error: ${err.message}`, err.stack);
         });
