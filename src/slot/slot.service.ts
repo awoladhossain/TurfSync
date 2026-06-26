@@ -14,8 +14,8 @@ export class SlotService {
     this.logger.log('🕛 Daily slot generation started...');
 
     const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    tomorrow.setUTCHours(0, 0, 0, 0);
 
     await this.generateSlotsForDate(tomorrow);
     this.logger.log('✅ Daily slot generation complete');
@@ -23,10 +23,11 @@ export class SlotService {
 
   async generateSlotsForNextDays(days = 7) {
     this.logger.log(`Generating slots for next ${days} days...`);
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
     for (let i = 0; i <= days; i++) {
-      const date = new Date();
-      date.setDate(date.getDate() + i);
-      date.setHours(0, 0, 0, 0);
+      const date = new Date(today);
+      date.setUTCDate(today.getUTCDate() + i);
       await this.generateSlotsForDate(date);
     }
 
@@ -69,7 +70,7 @@ export class SlotService {
       // If the hour is >= 24, the slot actually falls on the next calendar day
       const slotDate = new Date(date);
       if (currentHour >= 24) {
-        slotDate.setDate(slotDate.getDate() + 1);
+        slotDate.setUTCDate(slotDate.getUTCDate() + 1);
       }
 
       slotsToCreate.push({
@@ -99,10 +100,11 @@ export class SlotService {
     });
     if (!turf) return;
 
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
     for (let i = 0; i <= days; i++) {
-      const date = new Date();
-      date.setDate(date.getDate() + i);
-      date.setHours(0, 0, 0, 0);
+      const date = new Date(today);
+      date.setUTCDate(today.getUTCDate() + i);
       await this.generateTurfSlots(turf, date);
     }
     return {
@@ -114,7 +116,8 @@ export class SlotService {
   @Cron(CronExpression.EVERY_WEEK)
   async cleanupOldSlots() {
     const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
+    thirtyDaysAgo.setUTCHours(0, 0, 0, 0);
 
     const { count } = await this.prisma.slot.deleteMany({
       where: {

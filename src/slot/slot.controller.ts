@@ -20,7 +20,7 @@ import { SlotService } from './slot.service';
 export class SlotController {
   constructor(private readonly slotService: SlotService) {}
   @Post('generate')
-  @ApiOperation({ summary: 'Generate slots for specific turf' })
+  @ApiOperation({ summary: 'Generate slots for all active turfs' })
   generateAll() {
     return this.slotService.generateSlotsForNextDays(7);
   }
