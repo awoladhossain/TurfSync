@@ -97,7 +97,7 @@ export class BookingService {
             JOIN turfs t ON s."turfId" = t.id
             WHERE s.id = ${dto.slotId}
             AND s."turfId" = ${dto.turfId}
-            FOR UPDATE
+            FOR UPDATE OF s
           `;
 
           if (slots.length === 0) {
