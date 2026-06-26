@@ -148,3 +148,11 @@ model Payment {
   @@index([stripePaymentIntentId])
   @@map("payments")
 }
+
+model WebhookEvent {
+  id        String   @id
+  createdAt DateTime @default(now())
+
+  @@map("webhook_events")
+}
+

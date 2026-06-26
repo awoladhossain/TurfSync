@@ -139,6 +139,18 @@ export class PaymentService {
     }
     this.logger.log(`Stripe webhook received: ${event.type}`);
 
+    // Idempotency check: check if event has already been processed or is processing
+    try {
+      await this.prisma.webhookEvent.create({
+        data: { id: event.id },
+      });
+    } catch {
+      this.logger.warn(
+        `Stripe webhook event ${event.id} already processed or processing concurrently. Skipping.`,
+      );
+      return { success: true };
+    }
+
     // event type handler
     switch (event.type) {
       case 'payment_intent.succeeded':

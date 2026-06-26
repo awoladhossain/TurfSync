@@ -11,7 +11,7 @@ Below is the categorized checklist of all 28 issues reviewed in the codebase. It
   - **Description:** Register endpoint does a `findFirst` check, then `create`. Concurrent requests will bypass `findFirst` and attempt duplicate creation, throwing a raw Prisma uniqueness violation (P2002) which bubbles up as a 500 error instead of a clean 409 `ConflictException`.
   - **Proposed Fix:** Catch Prisma error code `P2002` in user creation and throw a `ConflictException` with a user-friendly message.
 
-- [ ] **2. Payment Webhook Idempotency Missing**
+- [x] **2. Payment Webhook Idempotency Missing**
   - **Files:** `src/payment/payment.service.ts` (`handlePaymentSuccess`)
   - **Description:** Although `payment.status === PaymentStatus.PAID` check exists, concurrent delivery of duplicate webhook events can bypass this check, triggering duplicate payment confirmations and notification queue additions. There is no `WebhookEvent` model to track processed stripe event IDs.
   - **Proposed Fix:** Create a `WebhookEvent` table to log Stripe event IDs and ensure only unique events are processed.
