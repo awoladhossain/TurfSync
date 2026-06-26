@@ -11,7 +11,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { BookingStatus, PaymentStatus } from '@prisma/client';
+import { BookingStatus, PaymentStatus, Prisma } from '@prisma/client';
 import type { Queue } from 'bull';
 import Stripe from 'stripe';
 import { CreatePaymentDto } from './dto/create-payment.dto';
@@ -144,11 +144,17 @@ export class PaymentService {
       await this.prisma.webhookEvent.create({
         data: { id: event.id },
       });
-    } catch {
-      this.logger.warn(
-        `Stripe webhook event ${event.id} already processed or processing concurrently. Skipping.`,
-      );
-      return { success: true };
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
+        this.logger.warn(
+          `Stripe webhook event ${event.id} already processed or processing concurrently. Skipping.`,
+        );
+        return { success: true };
+      }
+      throw err;
     }
 
     // event type handler
