@@ -1,9 +1,11 @@
 import { BullModule } from '@nestjs/bull';
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { AdminModule } from './admin/admin.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -12,19 +14,18 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { MetricsInterceptor } from './common/interceptors/metrics.interceptor';
 import { MetricsModule } from './common/metrics/metrics.module';
 import { SentryModule } from './common/sentry/sentry.module';
+import { CouponModule } from './coupon/coupon.module';
 import { HealthModule } from './health/health.module';
+import { MailModule } from './mail/mail.module';
 import { PaymentModule } from './payment/payment.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { QueueModule } from './queue/queue.module';
 import { RedisModule } from './redis/redis.module';
 import { ReviewModule } from './review/review.module';
 import { SlotModule } from './slot/slot.module';
+import { SmsModule } from './sms/sms.module';
 import { TurfModule } from './turf/turf.module';
 import { UploadModule } from './upload/upload.module';
-import { MailModule } from './mail/mail.module';
-import { AdminModule } from './admin/admin.module';
-import { CouponModule } from './coupon/coupon.module';
-import { SmsModule } from './sms/sms.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -84,4 +85,8 @@ import { SmsModule } from './sms/sms.module';
     AppService,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+  }
+}

@@ -98,7 +98,7 @@ Below is the categorized checklist of all 28 issues reviewed in the codebase. It
   - **Description:** Path parameters like `:id` are passed directly as strings to Prisma queries. If an invalid UUID is passed, Prisma throws a representation error, leading to a 500 error instead of a clean 400 Bad Request.
   - **Proposed Fix:** Add `ParseUUIDPipe` to the `:id` parameters in controllers.
 
-- [ ] **19. No Request ID Tracing for Filters/Guards**
+- [x] **19. No Request ID Tracing for Filters/Guards**
   - **Files:** `src/common/filters/http-exception.filter.ts`, `src/common/interceptors/logging.interceptor.ts`
   - **Description:** `requestId` is set in the `LoggingInterceptor`, which executes after guards and validation pipes. If a request fails in a guard or pipe, the response won't contain a `requestId`.
   - **Proposed Fix:** Implement a global middleware to generate and attach the `requestId` to the request object so it's always available.

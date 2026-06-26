@@ -18,7 +18,7 @@ export class LoggingInterceptor implements NestInterceptor {
     const req = ctx.getRequest<Request>();
     const res = ctx.getResponse<Response>();
 
-    const requestId = uuidv4();
+    const requestId = (req['requestId'] as string) || uuidv4();
     req['requestId'] = requestId;
     res.setHeader('X-Request-Id', requestId);
 
