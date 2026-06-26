@@ -21,8 +21,8 @@ async function main() {
 
   const passwordHash = await argon2.hash(adminPassword, {
     type: argon2.argon2id,
-    memoryCost: 65536,
-    timeCost: 3,
+    memoryCost: 19456,
+    timeCost: 2,
     parallelism: 1,
   });
 
