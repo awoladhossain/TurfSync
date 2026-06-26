@@ -21,6 +21,9 @@ import { ReviewModule } from './review/review.module';
 import { SlotModule } from './slot/slot.module';
 import { TurfModule } from './turf/turf.module';
 import { UploadModule } from './upload/upload.module';
+import { MailModule } from './mail/mail.module';
+import { AdminModule } from './admin/admin.module';
+import { CouponModule } from './coupon/coupon.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -61,6 +64,9 @@ import { UploadModule } from './upload/upload.module';
     MetricsModule,
     SentryModule,
     UploadModule,
+    MailModule,
+    AdminModule,
+    CouponModule,
   ],
   controllers: [AppController],
   providers: [
