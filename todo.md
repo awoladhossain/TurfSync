@@ -138,12 +138,12 @@ Below is the categorized checklist of all 28 issues reviewed in the codebase. It
   - **Description:** No metrics tracking booking conflict attempts or lock failures.
   - **Proposed Fix:** Add a counter metric (e.g., `booking_conflicts_total`) to monitor concurrency issues.
 
-- [ ] **27. Health Check Endpoints Incomplete**
+- [x] **27. Health Check Endpoints Incomplete**
   - **Files:** `src/health/health.controller.ts`
   - **Description:** Health checks exist for database and Redis, but Bull queues are not checked and Terminus library is not utilized.
   - **Proposed Fix:** Extend health checks to include Bull queue status.
 
-- [ ] **28. Missing API Documentation / Swagger Coverage**
+- [x] **28. Missing API Documentation / Swagger Coverage**
   - **Description:** DTO schemas lack Swagger decorators, so Swagger UI does not display request/response properties.
   - **Proposed Fix:** Add `@ApiProperty()` and `@ApiPropertyOptional()` to all DTO properties.
 
