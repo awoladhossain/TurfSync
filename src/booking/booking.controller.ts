@@ -15,6 +15,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
+import { PaginationDto } from '@/common/dto/pagination.dto';
 import { BookingService } from './booking.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 
@@ -34,8 +35,11 @@ export class BookingController {
   }
 
   @Get('my')
-  findMyBookings(@CurrentUser('id', ParseUUIDPipe) userId: string) {
-    return this.bookingService.findMyBookings(userId);
+  findMyBookings(
+    @CurrentUser('id', ParseUUIDPipe) userId: string,
+    @Query() query: PaginationDto,
+  ) {
+    return this.bookingService.findMyBookings(userId, query.page, query.limit);
   }
 
   @Get(':id')
@@ -60,7 +64,7 @@ export class BookingController {
   @Get('admin/all')
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
-  findAll(@Query('page') page = 1, @Query('limit') limit = 20) {
-    return this.bookingService.findAll(+page, +limit);
+  findAll(@Query() query: PaginationDto) {
+    return this.bookingService.findAll(query.page, query.limit);
   }
 }

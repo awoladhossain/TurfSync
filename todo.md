@@ -42,7 +42,7 @@ Below is the categorized checklist of all 28 issues reviewed in the codebase. It
   - **Description:** Using `ConflictException` (HTTP 409) when a turf or slot resource is not found, instead of `NotFoundException` (HTTP 404).
   - **Proposed Fix:** Replace with `NotFoundException` for resource-not-found situations.
 
-- [ ] **8. Pagination Input Validation Inconsistency**
+- [x] **8. Pagination Input Validation Inconsistency**
   - **Files:** `src/booking/booking.service.ts` (`findMyBookings`, `findAll`), `src/booking/booking.controller.ts`
   - **Description:** `findAll` in the controller parses page/limit query params using `+page` and `+limit` but does not perform range or format validation (e.g., preventing negative or huge limits). `findMyBookings` in the controller does not accept pagination query params at all, although the service does.
   - **Proposed Fix:** Introduce standard pagination DTO validation or extend `PaginationDto`.
