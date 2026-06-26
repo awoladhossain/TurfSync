@@ -20,8 +20,9 @@ const mockPrismaService = {
     findMany: jest.fn(),
     count: jest.fn(),
     create: jest.fn(),
+    updateMany: jest.fn(),
   },
-  slot: { update: jest.fn() },
+  slot: { update: jest.fn(), updateMany: jest.fn() },
 };
 
 const mockRedisLockService = {
@@ -126,6 +127,44 @@ describe('BookingService', () => {
       expect(mockRedisLockService.releaseLock).toHaveBeenCalledWith(
         'slot:slot-1',
         'lock-uuid',
+      );
+    });
+  });
+
+  describe('cleanupStalePendingBookings', () => {
+    it('should do nothing if no stale bookings exist', async () => {
+      mockPrismaService.booking.findMany.mockResolvedValue([]);
+      await service.cleanupStalePendingBookings();
+      expect(mockPrismaService.booking.findMany).toHaveBeenCalled();
+      expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('should cancel stale bookings and release slots in a transaction', async () => {
+      const mockStaleBookings = [
+        { id: 'booking-1', slotId: 'slot-1', turfId: 'turf-1' },
+        { id: 'booking-2', slotId: 'slot-2', turfId: 'turf-2' },
+      ];
+      mockPrismaService.booking.findMany.mockResolvedValue(mockStaleBookings);
+      mockPrismaService.$transaction.mockImplementation(
+        (cb: (client: typeof mockPrismaService) => unknown) =>
+          cb(mockPrismaService),
+      );
+
+      await service.cleanupStalePendingBookings();
+
+      expect(mockPrismaService.booking.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['booking-1', 'booking-2'] } },
+        data: { status: 'CANCELLED' },
+      });
+      expect(mockPrismaService.slot.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['slot-1', 'slot-2'] } },
+        data: { isBooked: false },
+      });
+      expect(mockRedisLockService.delByPattern).toHaveBeenCalledWith(
+        'slots:available:turf-1:*',
+      );
+      expect(mockRedisLockService.delByPattern).toHaveBeenCalledWith(
+        'slots:available:turf-2:*',
       );
     });
   });

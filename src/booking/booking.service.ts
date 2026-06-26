@@ -15,6 +15,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { BookingStatus, Prisma } from '@prisma/client';
 import type { Queue } from 'bull';
 import { CreateBookingDto } from './dto/create-booking.dto';
@@ -322,5 +323,54 @@ export class BookingService {
       data: bookings,
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
+  }
+
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async cleanupStalePendingBookings() {
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+    const staleBookings = await this.prisma.booking.findMany({
+      where: {
+        status: BookingStatus.PENDING,
+        createdAt: { lt: fifteenMinutesAgo },
+      },
+      select: {
+        id: true,
+        slotId: true,
+        turfId: true,
+      },
+    });
+
+    if (staleBookings.length === 0) {
+      return;
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.booking.updateMany({
+        where: {
+          id: { in: staleBookings.map((b) => b.id) },
+        },
+        data: {
+          status: BookingStatus.CANCELLED,
+        },
+      });
+
+      await tx.slot.updateMany({
+        where: {
+          id: { in: staleBookings.map((b) => b.slotId) },
+        },
+        data: {
+          isBooked: false,
+        },
+      });
+    });
+
+    const turfIds = Array.from(new Set(staleBookings.map((b) => b.turfId)));
+    for (const turfId of turfIds) {
+      await this.redis.delByPattern(`slots:available:${turfId}:*`);
+    }
+
+    this.logger.log(
+      `🗑️ Cleaned up ${staleBookings.length} stale PENDING bookings`,
+    );
   }
 }

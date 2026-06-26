@@ -16,7 +16,7 @@ Below is the categorized checklist of all 28 issues reviewed in the codebase. It
   - **Description:** Although `payment.status === PaymentStatus.PAID` check exists, concurrent delivery of duplicate webhook events can bypass this check, triggering duplicate payment confirmations and notification queue additions. There is no `WebhookEvent` model to track processed stripe event IDs.
   - **Proposed Fix:** Create a `WebhookEvent` table to log Stripe event IDs and ensure only unique events are processed.
 
-- [ ] **3. Booking Status Not Transitioned Properly (Stale PENDING Bookings)**
+- [x] **3. Booking Status Not Transitioned Properly (Stale PENDING Bookings)**
   - **Files:** `src/booking/booking.service.ts`
   - **Description:** Bookings are created in `PENDING` status and mark the corresponding slot as `isBooked: true`. If the user fails to complete the payment, the slot remains locked and the booking stays `PENDING` indefinitely, blocking future users.
   - **Proposed Fix:** Implement a scheduled cron job (e.g., every 5-15 minutes) to find stale `PENDING` bookings, cancel them, and release the slots (`isBooked: false`).
