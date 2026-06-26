@@ -20,8 +20,6 @@ export class TurfService {
     private slotService: SlotService,
   ) {}
 
-
-
   // create - with duplicate check and cache invalidation
   async create(dto: CreateTurfDto) {
     const existingTurf = await this.prisma.turf.findFirst({
