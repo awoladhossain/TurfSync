@@ -74,7 +74,7 @@ Below is the categorized checklist of all 28 issues reviewed in the codebase. It
   - **Description:** `Dockerfile` exposes `4000`, but if the container runs without a `PORT` environment variable explicitly set, the NestJS application defaults to port `3000`, causing port mapping issues.
   - **Proposed Fix:** Set the default port in `main.ts` to `4000` or handle it gracefully.
 
-- [ ] **14. Seeding Security Issue**
+- [x] **14. Seeding Security Issue**
   - **Files:** `prisma/seed.ts` (lines 19-37)
   - **Description:** Seed script creates a default admin user using hardcoded credentials (`admin@turfbook.com` / `Admin1234`) instead of environment variables like `ADMIN_SEED_PASSWORD`.
   - **Proposed Fix:** Load seed credentials from environment variables.

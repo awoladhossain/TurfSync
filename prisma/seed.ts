@@ -16,7 +16,10 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const passwordHash = await argon2.hash('Admin1234', {
+  const adminEmail = process.env.ADMIN_SEED_EMAIL || 'admin@turfbook.com';
+  const adminPassword = process.env.ADMIN_SEED_PASSWORD || 'Admin1234';
+
+  const passwordHash = await argon2.hash(adminPassword, {
     type: argon2.argon2id,
     memoryCost: 65536,
     timeCost: 3,
@@ -24,11 +27,11 @@ async function main() {
   });
 
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@turfbook.com' },
+    where: { email: adminEmail },
     update: {},
     create: {
       name: 'TurfBook Admin',
-      email: 'admin@turfbook.com',
+      email: adminEmail,
       phone: '01700000000',
       passwordHash,
       role: 'ADMIN',
@@ -91,7 +94,7 @@ async function main() {
   }
 
   console.log('✅ Seed complete!');
-  console.log(`Admin: admin@turfbook.com / Admin1234`);
+  console.log(`Admin: ${adminEmail} / ${adminPassword}`);
   console.log('DB URL:', process.env.DATABASE_URL);
 }
 
