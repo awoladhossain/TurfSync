@@ -5,6 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as argon2 from 'argon2';
 import { AuthService } from './auth.service';
+import { Prisma } from '@prisma/client';
 
 const mockPrismaService = {
   user: {
@@ -101,6 +102,40 @@ describe('AuthService', () => {
 
       await expect(service.register(registerDto)).rejects.toThrow(
         ConflictException,
+      );
+    });
+
+    it('should throw ConflictException with "Email is already registered" if database throws P2002 on email', async () => {
+      mockPrismaService.user.findFirst.mockResolvedValue(null);
+      const prismaError = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed',
+        {
+          code: 'P2002',
+          clientVersion: '7.8.0',
+          meta: { target: ['email'] },
+        },
+      );
+      mockPrismaService.user.create.mockRejectedValue(prismaError);
+
+      await expect(service.register(registerDto)).rejects.toThrow(
+        new ConflictException('Email is already registered'),
+      );
+    });
+
+    it('should throw ConflictException with "Phone number is already registered" if database throws P2002 on phone', async () => {
+      mockPrismaService.user.findFirst.mockResolvedValue(null);
+      const prismaError = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed',
+        {
+          code: 'P2002',
+          clientVersion: '7.8.0',
+          meta: { target: ['phone'] },
+        },
+      );
+      mockPrismaService.user.create.mockRejectedValue(prismaError);
+
+      await expect(service.register(registerDto)).rejects.toThrow(
+        new ConflictException('Phone number is already registered'),
       );
     });
   });

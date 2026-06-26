@@ -6,7 +6,7 @@ Below is the categorized checklist of all 28 issues reviewed in the codebase. It
 
 ## 🔴 CRITICAL ISSUES (Must Fix)
 
-- [ ] **1. Email/Phone Uniqueness Race Condition**
+- [x] **1. Email/Phone Uniqueness Race Condition**
   - **Files:** `src/auth/auth.service.ts` (lines 25-38)
   - **Description:** Register endpoint does a `findFirst` check, then `create`. Concurrent requests will bypass `findFirst` and attempt duplicate creation, throwing a raw Prisma uniqueness violation (P2002) which bubbles up as a 500 error instead of a clean 409 `ConflictException`.
   - **Proposed Fix:** Catch Prisma error code `P2002` in user creation and throw a `ConflictException` with a user-friendly message.

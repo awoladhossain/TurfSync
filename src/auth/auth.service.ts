@@ -12,6 +12,7 @@ import * as argon2 from 'argon2';
 import { createHash, randomUUID } from 'crypto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { Prisma } from '@prisma/client';
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -45,25 +46,44 @@ export class AuthService {
       parallelism: 1,
     });
 
-    const user = await this.prisma.user.create({
-      data: {
-        name: dto.name,
-        email: dto.email,
-        phone: dto.phone,
-        passwordHash,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        createdAt: true,
-      },
-    });
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          name: dto.name,
+          email: dto.email,
+          phone: dto.phone,
+          passwordHash,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          role: true,
+          createdAt: true,
+        },
+      });
 
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
-    return { user, ...tokens };
+      const tokens = await this.generateTokens(user.id, user.email, user.role);
+      return { user, ...tokens };
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const target = (error.meta?.target as string[]) || [];
+        if (target.includes('email')) {
+          throw new ConflictException('Email is already registered');
+        }
+        if (target.includes('phone')) {
+          throw new ConflictException('Phone number is already registered');
+        }
+        throw new ConflictException(
+          'Email or phone number is already registered',
+        );
+      }
+      throw error;
+    }
   }
 
   // 2. login method
