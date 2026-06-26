@@ -18,6 +18,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { QueueModule } from './queue/queue.module';
 import { RedisModule } from './redis/redis.module';
 import { ReviewModule } from './review/review.module';
+import { SlotModule } from './slot/slot.module';
 import { TurfModule } from './turf/turf.module';
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { TurfModule } from './turf/turf.module';
     RedisModule,
     QueueModule,
     TurfModule,
+    SlotModule,
     BookingModule,
     HealthModule,
     PaymentModule,
