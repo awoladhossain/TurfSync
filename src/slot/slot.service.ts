@@ -49,25 +49,40 @@ export class SlotService {
   }
 
   async generateTurfSlots(turf: Turf, date: Date) {
-    const openHour = parseInt(turf.openTime.split(':')[0]);
-    const closeHour = parseInt(turf.closeTime.split(':')[0]);
+    let currentHour = parseInt(turf.openTime.split(':')[0]);
+    let endHour = parseInt(turf.closeTime.split(':')[0]);
+
+    // Adjust endHour if it is midnight or past midnight (e.g. closeTime <= openTime)
+    if (endHour <= currentHour) {
+      endHour += 24;
+    }
 
     const slotsToCreate: Prisma.SlotCreateManyInput[] = [];
 
-    for (let hour = openHour; hour < closeHour; hour++) {
-      const startTime = `${hour.toString().padStart(2, '0')}:00`;
-      const endTime = `${(hour + 1).toString().padStart(2, '0')}:00`;
+    while (currentHour < endHour) {
+      const startHourNormalized = currentHour % 24;
+      const endHourNormalized = (currentHour + 1) % 24;
 
-      // TODO : upsert the slots
+      const startTime = `${startHourNormalized.toString().padStart(2, '0')}:00`;
+      const endTime = `${endHourNormalized.toString().padStart(2, '0')}:00`;
+
+      // If the hour is >= 24, the slot actually falls on the next calendar day
+      const slotDate = new Date(date);
+      if (currentHour >= 24) {
+        slotDate.setDate(slotDate.getDate() + 1);
+      }
 
       slotsToCreate.push({
         turfId: turf.id,
-        date,
+        date: slotDate,
         startTime,
         endTime,
         isBooked: false,
       });
+
+      currentHour++;
     }
+
     // createMany + skipDuplicate = already existing slots will be skipped
     await this.prisma.slot.createMany({
       data: slotsToCreate,
