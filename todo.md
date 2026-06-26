@@ -88,7 +88,7 @@ Below is the categorized checklist of all 28 issues reviewed in the codebase. It
   - **Description:** Uncaught Prisma errors (e.g., record not found, uniqueness violations) bubble up to the global filter and return generic 500 "Internal server error" messages instead of proper HTTP status codes.
   - **Proposed Fix:** Build a dedicated exception filter/logic for Prisma error mapping (e.g., mapping P2025 to 404, P2002 to 409).
 
-- [ ] **17. Booking Payload Leak — Sensitive Payment Data**
+- [x] **17. Booking Payload Leak — Sensitive Payment Data**
   - **Files:** `src/booking/booking.service.ts` (`findMyBookings`, `findOne`)
   - **Description:** Querying bookings includes the full `payment` relation, exposing internal Stripe fields (`stripePaymentIntentId`, `stripeClientSecret`, `stripeChargeId`) to the client.
   - **Proposed Fix:** Use Prisma's `select` to only return safe payment fields (like `id`, `status`, `amount`, `paidAt`).

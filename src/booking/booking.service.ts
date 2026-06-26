@@ -207,7 +207,9 @@ export class BookingService {
         include: {
           turf: { select: { id: true, name: true, address: true, city: true } },
           slot: true,
-          payment: true,
+          payment: {
+            select: { id: true, status: true, amount: true, paidAt: true },
+          },
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -229,7 +231,9 @@ export class BookingService {
         turf: true,
         slot: true,
         user: { select: { id: true, name: true, email: true, phone: true } },
-        payment: true,
+        payment: {
+          select: { id: true, status: true, amount: true, paidAt: true },
+        },
       },
     });
     if (!booking) {
@@ -306,7 +310,9 @@ export class BookingService {
           user: { select: { id: true, name: true, phone: true } },
           turf: { select: { id: true, name: true, address: true } },
           slot: true,
-          payment: true,
+          payment: {
+            select: { id: true, status: true, amount: true, paidAt: true },
+          },
         },
         orderBy: { createdAt: 'desc' },
       }),
