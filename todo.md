@@ -93,7 +93,7 @@ Below is the categorized checklist of all 28 issues reviewed in the codebase. It
   - **Description:** Querying bookings includes the full `payment` relation, exposing internal Stripe fields (`stripePaymentIntentId`, `stripeClientSecret`, `stripeChargeId`) to the client.
   - **Proposed Fix:** Use Prisma's `select` to only return safe payment fields (like `id`, `status`, `amount`, `paidAt`).
 
-- [ ] **18. Invalid ID Format Not Validated**
+- [x] **18. Invalid ID Format Not Validated**
   - **Files:** `src/turf/turf.controller.ts`, `src/turf/turf.service.ts` (`findOne`)
   - **Description:** Path parameters like `:id` are passed directly as strings to Prisma queries. If an invalid UUID is passed, Prisma throws a representation error, leading to a 500 error instead of a clean 400 Bad Request.
   - **Proposed Fix:** Add `ParseUUIDPipe` to the `:id` parameters in controllers.
