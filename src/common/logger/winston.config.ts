@@ -1,6 +1,42 @@
 import { format, transports } from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
 
+const getContextIcon = (context?: string): string => {
+  if (!context) return '🦁';
+  const ctx = context.toLowerCase();
+  if (
+    ctx.includes('nest') ||
+    ctx === 'instanceloader' ||
+    ctx === 'routesresolver' ||
+    ctx === 'routerexplorer'
+  )
+    return '🦁';
+  if (ctx.includes('app')) return '🏟️';
+  if (ctx.includes('slot')) return '📅';
+  if (ctx.includes('redis')) return '🔴';
+  if (ctx.includes('prisma') || ctx.includes('database') || ctx.includes('db'))
+    return '🗄️';
+  if (ctx.includes('payment') || ctx.includes('stripe')) return '💳';
+  if (ctx.includes('booking')) return '🎟️';
+  if (ctx.includes('turf')) return '🌱';
+  if (ctx.includes('auth') || ctx.includes('jwt')) return '🔑';
+  if (
+    ctx.includes('exception') ||
+    ctx.includes('filter') ||
+    ctx.includes('error')
+  )
+    return '🚨';
+  if (ctx.includes('log') || ctx.includes('interceptor')) return '🔍';
+  if (
+    ctx.includes('notification') ||
+    ctx.includes('queue') ||
+    ctx.includes('processor') ||
+    ctx.includes('bull')
+  )
+    return '🔔';
+  return '⚙️';
+};
+
 export const winstonConfig = {
   format: format.combine(format.timestamp(), format.json()),
   transports: [
@@ -32,7 +68,9 @@ export const winstonConfig = {
             logMessage = JSON.stringify(message);
           }
 
-          return `${timestamp || ''} [${context || 'Nest'}] ${level || ''}: ${String(logMessage)}`;
+          const icon = getContextIcon(context);
+          const contextStr = context ? `${icon} ${context}` : `${icon} Nest`;
+          return `${timestamp || ''} [${contextStr}] ${level || ''}: ${String(logMessage)}`;
         }),
       ),
     }),

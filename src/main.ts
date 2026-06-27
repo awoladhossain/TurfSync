@@ -1,4 +1,4 @@
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
@@ -68,6 +68,8 @@ async function bootstrap() {
 
   const port = process.env.PORT || 4000;
   await app.listen(port);
-  console.log(`TurfBook running on: http://localhost:${port}/api`);
+  new Logger('NestApplication').log(
+    `TurfBook running on: http://localhost:${port}/api`,
+  );
 }
 void bootstrap();

@@ -1,5 +1,10 @@
 import { MetricsService } from '@/common/metrics/metrics.service';
-import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
@@ -10,6 +15,7 @@ export class PrismaService
   implements OnModuleInit, OnModuleDestroy
 {
   private readonly pool: Pool;
+  private readonly logger = new Logger(PrismaService.name);
 
   constructor(private readonly metrics: MetricsService) {
     const connectionString = process.env.DATABASE_URL;
@@ -53,9 +59,9 @@ export class PrismaService
   async onModuleInit() {
     try {
       await this.$connect();
-      console.log('✅ Database connected successfully via Prisma 7');
+      this.logger.log('✅ Database connected successfully via Prisma 7');
     } catch (error) {
-      console.error('❌ Connection error:', error);
+      this.logger.error('❌ Connection error:', error);
     }
   }
 
