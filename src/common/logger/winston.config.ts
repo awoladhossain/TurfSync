@@ -20,6 +20,7 @@ const getContextIcon = (context?: string): string => {
   if (ctx.includes('booking')) return '🎟️';
   if (ctx.includes('turf')) return '🌱';
   if (ctx.includes('auth') || ctx.includes('jwt')) return '🔑';
+  if (ctx.includes('upload')) return '📤';
   if (
     ctx.includes('exception') ||
     ctx.includes('filter') ||

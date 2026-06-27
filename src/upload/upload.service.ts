@@ -1,10 +1,17 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary } from 'cloudinary';
 import 'multer';
 
 @Injectable()
 export class UploadService {
+  private readonly logger = new Logger(UploadService.name);
+
   constructor(private configService: ConfigService) {
     cloudinary.config({
       cloud_name: this.configService.get<string>('CLOUDINARY_CLOUD_NAME'),
@@ -62,5 +69,20 @@ export class UploadService {
         )
         .end(file.buffer);
     });
+  }
+
+  // delete image from cloudinary
+  async deleteImage(imageUrl: string): Promise<void> {
+    try {
+      const publicId = imageUrl
+        .split('/')
+        .slice(-3)
+        .join('/')
+        .replace(/\.[^/.]+$/, '');
+      await cloudinary.uploader.destroy(publicId);
+    } catch (error) {
+      this.logger.error('Cloudinary delete error:', error);
+      throw new InternalServerErrorException('Failed to delete image');
+    }
   }
 }
