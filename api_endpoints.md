@@ -4,6 +4,40 @@ This document describes all available API endpoints for TurfSync. This reference
 
 ---
 
+## Standard Response Envelope
+
+All API endpoints (except Stripe webhooks and health check endpoints) return a standard JSON envelope format wrapped by the global `ResponseInterceptor`. The actual response payload is contained within the `data` property.
+
+### **Success Response Structure**
+```json
+{
+  "success": true,
+  "statusCode": 200, // Or appropriate HTTP success code (200, 201, etc.)
+  "message": "Success",
+  "data": { ... }, // Actual API response payload
+  "meta": { ... }, // Optional metadata (e.g., pagination info)
+  "timestamp": "2026-06-27T12:00:00.000Z",
+  "requestId": "550e8400-e29b-41d4-a716-446655440003"
+}
+```
+
+### **Error Response Structure**
+If an error occurs, the global exception filter catches it and returns the following structure:
+```json
+{
+  "success": false,
+  "statusCode": 400, // Or appropriate HTTP error code (400, 401, 403, 404, 500, etc.)
+  "message": "Error details/message",
+  "errors": [ ... ], // Optional array of validation messages (if validation failed)
+  "requestId": "550e8400-e29b-41d4-a716-446655440003",
+  "timestamp": "2026-06-27T12:00:00.000Z",
+  "path": "/api/endpoint",
+  "reason": "Error details/message"
+}
+```
+
+---
+
 ## Table of Contents
 1. [Authentication (`/auth`)](#1-authentication-auth)
 2. [Turfs (`/turfs`)](#2-turfs-turfs)
@@ -31,7 +65,7 @@ Base URL: `/auth`
     "password": "Password123!" // Min 8 chars, 1 uppercase, 1 lowercase, 1 digit
   }
   ```
-* **Success Response**: `201 Created`
+* **Success Response**: `201 Created` (wrapped in `.data`)
   ```json
   {
     "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -54,7 +88,7 @@ Base URL: `/auth`
     "password": "Password123!"
   }
   ```
-* **Success Response**: `200 OK`
+* **Success Response**: `200 OK` (wrapped in `.data`)
   ```json
   {
     "accessToken": "eyJhbGciOi...",
@@ -65,7 +99,7 @@ Base URL: `/auth`
 ### **Refresh Access Token**
 * **Endpoint**: `POST /auth/refresh`
 * **Auth**: `Bearer <Refresh-Token>` (Requires JWT Refresh Guard)
-* **Success Response**: `200 OK`
+* **Success Response**: `200 OK` (wrapped in `.data`)
   ```json
   {
     "accessToken": "eyJhbGciOi...",
@@ -92,7 +126,7 @@ Base URL: `/auth`
 ### **Get User Profile**
 * **Endpoint**: `GET /auth/me`
 * **Auth**: `Bearer <Access-Token>` (Requires JWT Auth Guard)
-* **Success Response**: `200 OK`
+* **Success Response**: `200 OK` (wrapped in `.data`)
   ```json
   {
     "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -121,40 +155,33 @@ Base URL: `/turfs`
   * `minPrice` (number, optional, min: `0`)
   * `maxPrice` (number, optional, min: `0`)
   * `availableDate` (string, optional, format: `YYYY-MM-DD`) - retrieves turfs that have available slots on this date, including matching slot metadata.
-* **Success Response**: `200 OK`
+* **Success Response**: `200 OK` (wrapped in `.data`)
   ```json
-  {
-    "data": [
-      {
-        "id": "550e8400-e29b-41d4-a716-446655440001",
-        "name": "Banani Premium Arena",
-        "description": "Premium artificial 7-a-side turf.",
-        "address": "Road 11, Banani",
-        "city": "Dhaka",
-        "sportType": "BOTH",
-        "pricePerHour": 1500.00,
-        "openTime": "06:00",
-        "closeTime": "23:00",
-        "isActive": true,
-        "images": ["https://res.cloudinary.com/..."],
-        "slots": [
-          { "id": "uuid-1", "startTime": "08:00", "endTime": "09:00" }
-        ] // Only included when availableDate query filter is active
-      }
-    ],
-    "meta": {
-      "total": 1,
-      "page": 1,
-      "limit": 10,
-      "totalPages": 1
+  [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440001",
+      "name": "Banani Premium Arena",
+      "description": "Premium artificial 7-a-side turf.",
+      "address": "Road 11, Banani",
+      "city": "Dhaka",
+      "sportType": "BOTH",
+      "pricePerHour": 1500.00,
+      "openTime": "06:00",
+      "closeTime": "23:00",
+      "isActive": true,
+      "images": ["https://res.cloudinary.com/..."],
+      "slots": [
+        { "id": "uuid-1", "startTime": "08:00", "endTime": "09:00" }
+      ] // Only included when availableDate query filter is active
     }
-  }
+  ]
   ```
+  *Note: Pagination metadata (`total`, `page`, `limit`, `totalPages`) will be present in the `meta` field of the standard response envelope.*
 
 ### **Find Turf by ID**
 * **Endpoint**: `GET /turfs/:id`
 * **Auth**: None
-* **Success Response**: `200 OK`
+* **Success Response**: `200 OK` (wrapped in `.data`)
   ```json
   {
     "id": "550e8400-e29b-41d4-a716-446655440001",
@@ -168,7 +195,7 @@ Base URL: `/turfs`
 * **Auth**: None
 * **Query Parameters**:
   * `date` (string, optional, format: `YYYY-MM-DD`) - defaults to current date
-* **Success Response**: `200 OK`
+* **Success Response**: `200 OK` (wrapped in `.data`)
   ```json
   [
     {
@@ -230,7 +257,7 @@ Base URL: `/bookings`
     "notes": "Please prepare the turf." // Optional
   }
   ```
-* **Success Response**: `201 Created`
+* **Success Response**: `201 Created` (wrapped in `.data`)
   ```json
   {
     "id": "booking-uuid",
@@ -250,12 +277,12 @@ Base URL: `/bookings`
 * **Query Parameters**:
   * `page` (number, optional, default: `1`)
   * `limit` (number, optional, default: `10`)
-* **Success Response**: `200 OK`
+* **Success Response**: `200 OK` (wrapped in `.data`)
 
 ### **Get Booking by ID**
 * **Endpoint**: `GET /bookings/:id`
 * **Auth**: `Bearer <Access-Token>` (Requires JWT Auth Guard)
-* **Success Response**: `200 OK` (Accessible by the owner user or an Admin)
+* **Success Response**: `200 OK` (wrapped in `.data` - Accessible by the owner user or an Admin)
 
 ### **Cancel Booking**
 * **Endpoint**: `PATCH /bookings/:id/cancel`
@@ -268,7 +295,7 @@ Base URL: `/bookings`
 * **Query Parameters**:
   * `page` (number, optional)
   * `limit` (number, optional)
-* **Success Response**: `200 OK`
+* **Success Response**: `200 OK` (wrapped in `.data`)
 
 ---
 
@@ -285,7 +312,7 @@ Base URL: `/payment`
     "bookingId": "550e8400-e29b-41d4-a716-446655440002"
   }
   ```
-* **Success Response**: `201 Created`
+* **Success Response**: `201 Created` (wrapped in `.data`)
   ```json
   {
     "clientSecret": "pi_123456_secret_654321",
@@ -296,7 +323,7 @@ Base URL: `/payment`
 ### **Get Payment Status**
 * **Endpoint**: `POST /payment/booking/:bookingId`
 * **Auth**: `Bearer <Access-Token>` (Requires JWT Auth Guard)
-* **Success Response**: `200 OK`
+* **Success Response**: `200 OK` (wrapped in `.data`)
 
 ### **Refund Payment**
 * **Endpoint**: `POST /payment/refund/:bookingId`
@@ -306,7 +333,7 @@ Base URL: `/payment`
 ### **Stripe Webhook Handler**
 * **Endpoint**: `POST /payment/webhook`
 * **Auth**: Stripe Signature Verification (Header `stripe-signature`)
-* **Success Response**: `200 OK`
+* **Success Response**: `200 OK` (NOT wrapped in standard envelope)
 
 ---
 
@@ -343,7 +370,7 @@ Base URL: `/admin/upload`
 * **Content-Type**: `multipart/form-data`
 * **Request Body**:
   * `image` (binary file, maximum size `5MB`. Supported types: `image/jpeg`, `image/png`, `image/webp`)
-* **Success Response**: `201 Created`
+* **Success Response**: `201 Created` (wrapped in `.data`)
   ```json
   {
     "imageUrl": "https://res.cloudinary.com/..."
@@ -359,7 +386,7 @@ Base URL: `/admin/upload`
     "imageUrl": "https://res.cloudinary.com/..."
   }
   ```
-* **Success Response**: `200 OK`
+* **Success Response**: `200 OK` (wrapped in `.data`)
   ```json
   {
     "success": true
@@ -375,7 +402,7 @@ Base URL: `/health`
 ### **Liveness/Readiness Check**
 * **Endpoint**: `GET /health`
 * **Auth**: None
-* **Success Response**: `200 OK` (If services are running)
+* **Success Response**: `200 OK` (NOT wrapped in standard envelope)
   ```json
   {
     "status": "ok",
