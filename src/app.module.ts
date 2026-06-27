@@ -1,6 +1,5 @@
 import { BullModule } from '@nestjs/bull';
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -12,7 +11,9 @@ import { AuthModule } from './auth/auth.module';
 import { BookingModule } from './booking/booking.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { MetricsInterceptor } from './common/interceptors/metrics.interceptor';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { MetricsModule } from './common/metrics/metrics.module';
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { SentryModule } from './common/sentry/sentry.module';
 import { CouponModule } from './coupon/coupon.module';
 import { HealthModule } from './health/health.module';
@@ -82,6 +83,7 @@ import { UploadModule } from './upload/upload.module';
       provide: APP_INTERCEPTOR,
       useClass: MetricsInterceptor,
     },
+    { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },
     AppService,
   ],
 })

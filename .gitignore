@@ -13,6 +13,7 @@ lerna-debug.log*
 git_commit_guide.md
 # OS
 .DS_Store
+api_endpoints.md
 
 # Tests
 /coverage
