@@ -46,7 +46,16 @@ export class TurfService {
 
   // find all - Cache-Aside Pattern
   async findAll(query: QueryTurfDto) {
-    const { city, sportType, search, page = 1, limit = 10 } = query;
+    const {
+      city,
+      sportType,
+      search,
+      minPrice,
+      maxPrice,
+      availableDate,
+      page = 1,
+      limit = 10,
+    } = query;
     // cache key
     const cacheKey = `turf:list:${JSON.stringify(query)}`;
 
@@ -67,12 +76,44 @@ export class TurfService {
       where.name = { contains: search, mode: 'insensitive' };
     }
 
+    // price range filter
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      where.pricePerHour = {};
+      if (minPrice !== undefined) {
+        where.pricePerHour.gte = minPrice;
+      }
+      if (maxPrice !== undefined) {
+        where.pricePerHour.lte = maxPrice;
+      }
+    }
+
+    // available date filter
+    if (availableDate) {
+      where.slots = {
+        some: {
+          date: new Date(availableDate),
+          isBooked: false,
+        },
+      };
+    }
+
     const [turfs, total] = await Promise.all([
       this.prisma.turf.findMany({
         where,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
+        include: availableDate
+          ? {
+              slots: {
+                where: {
+                  date: new Date(availableDate),
+                  isBooked: false,
+                },
+                select: { id: true, startTime: true, endTime: true },
+              },
+            }
+          : undefined,
       }),
       this.prisma.turf.count({ where }),
     ]);
