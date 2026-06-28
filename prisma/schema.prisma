@@ -35,15 +35,19 @@ enum BookingStatus {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  name         String
-  email        String   @unique
-  phone        String   @unique
-  passwordHash String
-  role         Role     @default(USER)
-  isVerified   Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                   String    @id @default(uuid())
+  name                 String
+  email                String    @unique
+  phone                String    @unique
+  passwordHash         String
+  role                 Role      @default(USER)
+  isVerified           Boolean   @default(false)
+  emailVerifyToken     String?
+  emailVerifyExpires   DateTime?
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   refreshTokens RefreshToken[]
   bookings      Booking[]
@@ -155,4 +159,3 @@ model WebhookEvent {
 
   @@map("webhook_events")
 }
-
