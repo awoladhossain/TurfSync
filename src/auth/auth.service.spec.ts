@@ -6,6 +6,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import * as argon2 from 'argon2';
 import { AuthService } from './auth.service';
 import { Prisma } from '@prisma/client';
+import { MailService } from '@/mail/mail.service';
 
 const mockPrismaService = {
   user: {
@@ -28,6 +29,12 @@ const mockConfigService = {
   get: jest.fn().mockReturnValue('mock-secret'),
 };
 
+const mockMailService = {
+  sendVerificationEmail: jest.fn(),
+  sendPasswordResetEmail: jest.fn(),
+  sendBookingConfirmationEmail: jest.fn(),
+};
+
 describe('AuthService', () => {
   let service: AuthService;
 
@@ -38,12 +45,12 @@ describe('AuthService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: JwtService, useValue: mockJwtService },
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: MailService, useValue: mockMailService },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
 
-    // প্রতিটা test এর আগে mock reset করো
     jest.clearAllMocks();
   });
 
@@ -58,10 +65,8 @@ describe('AuthService', () => {
     };
 
     it('should register a new user successfully', async () => {
-      // Mock: user নেই
       mockPrismaService.user.findFirst.mockResolvedValue(null);
 
-      // Mock: user create হলো
       mockPrismaService.user.create.mockResolvedValue({
         id: 'user-1',
         name: registerDto.name,
