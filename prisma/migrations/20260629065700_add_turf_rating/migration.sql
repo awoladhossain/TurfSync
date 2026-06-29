@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "turfs" ADD COLUMN     "rating" DOUBLE PRECISION NOT NULL DEFAULT 0;

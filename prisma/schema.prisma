@@ -80,6 +80,7 @@ model Turf {
   pricePerHour Decimal   @db.Decimal(10, 2)
   openTime     String
   closeTime    String
+  rating       Float     @default(0)
   isActive     Boolean   @default(true)
   images       String[]
   createdAt    DateTime  @default(now())
