@@ -51,6 +51,7 @@ model User {
 
   refreshTokens RefreshToken[]
   bookings      Booking[]
+  reviews       Review[]
 
   @@map("users")
 }
@@ -86,6 +87,7 @@ model Turf {
 
   slots    Slot[]
   bookings Booking[]
+  reviews  Review[]
 
   @@map("turfs")
 }
@@ -123,6 +125,7 @@ model Booking {
   turf    Turf     @relation(fields: [turfId], references: [id])
   slot    Slot     @relation(fields: [slotId], references: [id])
   payment Payment?
+  review  Review?
 
   @@index([userId, createdAt]) // for faster lookups of a user's bookings
   @@index([turfId, status]) // for faster lookups of bookings by turf and status
@@ -158,4 +161,22 @@ model WebhookEvent {
   createdAt DateTime @default(now())
 
   @@map("webhook_events")
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  userId    String
+  turfId    String
+  bookingId String   @unique
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  turf    Turf    @relation(fields: [turfId], references: [id])
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@index([turfId])
+  @@index([userId])
+  @@map("reviews")
 }
