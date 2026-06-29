@@ -8,10 +8,13 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import * as express from 'express';
 import { AuthService } from './auth.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
@@ -27,6 +30,30 @@ interface RequestUser {
   role: string;
 }
 
+const COOKIE_OPTIONS_ACCESS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+  path: '/',
+  maxAge: 15 * 60 * 1000, // 15 mins
+};
+
+const COOKIE_OPTIONS_REFRESH = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+  path: '/',
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+};
+
+const COOKIE_OPTIONS_CLEAR = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+  path: '/',
+  maxAge: 0,
+};
+
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
@@ -35,8 +62,22 @@ export class AuthController {
   // * register
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  async register(
+    @Body() dto: RegisterDto,
+    @Res({ passthrough: true }) response: express.Response,
+  ) {
+    const result = await this.authService.register(dto);
+    response.cookie('access_token', result.accessToken, COOKIE_OPTIONS_ACCESS);
+    response.cookie(
+      'refresh_token',
+      result.refreshToken,
+      COOKIE_OPTIONS_REFRESH,
+    );
+    return {
+      user: result.user,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    };
   }
 
   // * login
@@ -44,19 +85,46 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @Throttle({ short: { ttl: 60000, limit: 5 } })
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) response: express.Response,
+  ) {
+    const result = await this.authService.login(dto);
+    response.cookie('access_token', result.accessToken, COOKIE_OPTIONS_ACCESS);
+    response.cookie(
+      'refresh_token',
+      result.refreshToken,
+      COOKIE_OPTIONS_REFRESH,
+    );
+    return {
+      user: result.user,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    };
   }
 
   /**
-   * user -> /auth/refrersh -> useguard ->
+   * user -> /auth/refresh -> useguard ->
    */
   @ApiBearerAuth('JWT')
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtRefreshGuard)
-  refresh(@CurrentUser() user: RequestUser) {
-    return this.authService.refreshTokens(user.id, user.refreshToken);
+  async refresh(
+    @CurrentUser() user: RequestUser,
+    @Res({ passthrough: true }) response: express.Response,
+  ) {
+    const result = await this.authService.refreshTokens(
+      user.id,
+      user.refreshToken,
+    );
+    response.cookie('access_token', result.accessToken, COOKIE_OPTIONS_ACCESS);
+    response.cookie(
+      'refresh_token',
+      result.refreshToken,
+      COOKIE_OPTIONS_REFRESH,
+    );
+    return result;
   }
 
   // * logout
@@ -64,8 +132,27 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  logout(@CurrentUser('id') userId: string, @Body() dto: RefreshTokenDto) {
-    return this.authService.logout(userId, dto.refreshToken);
+  async logout(
+    @CurrentUser('id') userId: string,
+    @Body() dto: RefreshTokenDto,
+    @Req() req: express.Request,
+    @Res({ passthrough: true }) response: express.Response,
+  ) {
+    let token = dto.refreshToken;
+    if (!token && req.cookies) {
+      token = (req.cookies as Record<string, string>)['refresh_token'];
+    }
+
+    if (!token) {
+      response.clearCookie('access_token', COOKIE_OPTIONS_CLEAR);
+      response.clearCookie('refresh_token', COOKIE_OPTIONS_CLEAR);
+      return { message: 'Logout successful' };
+    }
+
+    const result = await this.authService.logout(userId, token);
+    response.clearCookie('access_token', COOKIE_OPTIONS_CLEAR);
+    response.clearCookie('refresh_token', COOKIE_OPTIONS_CLEAR);
+    return result;
   }
 
   // * logout all
@@ -73,8 +160,14 @@ export class AuthController {
   @Post('logout-all')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  logoutAll(@CurrentUser('id') userId: string) {
-    return this.authService.logoutAll(userId);
+  async logoutAll(
+    @CurrentUser('id') userId: string,
+    @Res({ passthrough: true }) response: express.Response,
+  ) {
+    const result = await this.authService.logoutAll(userId);
+    response.clearCookie('access_token', COOKIE_OPTIONS_CLEAR);
+    response.clearCookie('refresh_token', COOKIE_OPTIONS_CLEAR);
+    return result;
   }
 
   // * get profile
