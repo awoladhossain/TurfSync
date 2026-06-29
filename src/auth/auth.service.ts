@@ -26,7 +26,7 @@ export class AuthService {
     private mailService: MailService,
   ) {}
 
-  // 1. register method
+  // register method
   async register(dto: RegisterDto) {
     const existingUser = await this.prisma.user.findFirst({
       where: {

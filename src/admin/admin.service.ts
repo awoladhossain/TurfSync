@@ -110,9 +110,13 @@ export class AdminService {
     };
   }
 
-  // revenue analystics
   async getRevenueAnalytics(period: 'daily' | 'weekly' | 'monthly' = 'daily') {
     const days = period === 'daily' ? 30 : period === 'weekly' ? 12 : 12;
+    await Promise.resolve();
     const result = [];
+    this.logger.log(
+      `Fetching analytics for ${period} spanning ${days} periods`,
+    );
+    return result;
   }
 }

@@ -219,7 +219,9 @@ describe('AuthService', () => {
           email: 'rahim@test.com',
           password: 'wrong-password',
         }),
-      ).rejects.toThrow('Too many failed attempts. This account has been locked for 15 minutes.');
+      ).rejects.toThrow(
+        'Too many failed attempts. This account has been locked for 15 minutes.',
+      );
 
       expect(mockPrismaService.user.update).toHaveBeenCalledWith({
         where: { id: 'user-1' },
