@@ -99,13 +99,53 @@ export class AuthService {
       throw new UnauthorizedException('Email or password is incorrect');
     }
 
+    if (user.lockoutUntil && user.lockoutUntil > new Date()) {
+      const remainingMinutes = Math.ceil(
+        (user.lockoutUntil.getTime() - Date.now()) / (60 * 1000),
+      );
+      throw new UnauthorizedException(
+        `This account is temporarily locked. Please try again in ${remainingMinutes} minute(s).`,
+      );
+    }
+
     const isPasswordValid = await argon2.verify(
       user.passwordHash,
       dto.password,
     );
 
     if (!isPasswordValid) {
+      const newAttempts = user.failedLoginAttempts + 1;
+      const dataToUpdate: { failedLoginAttempts: number; lockoutUntil?: Date } =
+        {
+          failedLoginAttempts: newAttempts,
+        };
+
+      if (newAttempts >= 5) {
+        dataToUpdate.lockoutUntil = new Date(Date.now() + 15 * 60 * 1000);
+      }
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: dataToUpdate,
+      });
+
+      if (newAttempts >= 5) {
+        throw new UnauthorizedException(
+          'Too many failed attempts. This account has been locked for 15 minutes.',
+        );
+      }
+
       throw new UnauthorizedException('Email or password is incorrect');
+    }
+
+    if (user.failedLoginAttempts > 0 || user.lockoutUntil) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: 0,
+          lockoutUntil: null,
+        },
+      });
     }
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
@@ -283,6 +323,8 @@ export class AuthService {
         passwordHash,
         passwordResetToken: null,
         passwordResetExpires: null,
+        failedLoginAttempts: 0,
+        lockoutUntil: null,
       },
     });
 

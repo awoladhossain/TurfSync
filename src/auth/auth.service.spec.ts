@@ -13,6 +13,7 @@ const mockPrismaService = {
     findFirst: jest.fn(),
     findUnique: jest.fn(),
     create: jest.fn(),
+    update: jest.fn(),
   },
   refreshToken: {
     create: jest.fn(),
@@ -148,7 +149,7 @@ describe('AuthService', () => {
   // ─── Login Tests ─────────────────────────────────────
 
   describe('login', () => {
-    it('should login successfully with correct credentials', async () => {
+    it('should login successfully with correct credentials and no failures', async () => {
       const password = 'Test1234!';
       const passwordHash = await argon2.hash(password);
 
@@ -160,6 +161,8 @@ describe('AuthService', () => {
         name: 'Rahim',
         phone: '01712345678',
         isVerified: true,
+        failedLoginAttempts: 0,
+        lockoutUntil: null,
         createdAt: new Date(),
       });
 
@@ -174,7 +177,7 @@ describe('AuthService', () => {
       expect(result.user).not.toHaveProperty('passwordHash');
     });
 
-    it('should throw UnauthorizedException for wrong password', async () => {
+    it('should throw UnauthorizedException for wrong password and increment failed attempts', async () => {
       const passwordHash = await argon2.hash('correct-password');
 
       mockPrismaService.user.findUnique.mockResolvedValue({
@@ -182,6 +185,8 @@ describe('AuthService', () => {
         email: 'rahim@test.com',
         passwordHash,
         role: 'USER',
+        failedLoginAttempts: 2,
+        lockoutUntil: null,
       });
 
       await expect(
@@ -190,6 +195,90 @@ describe('AuthService', () => {
           password: 'wrong-password',
         }),
       ).rejects.toThrow(UnauthorizedException);
+
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { failedLoginAttempts: 3 },
+      });
+    });
+
+    it('should lock the account after 5 failed attempts', async () => {
+      const passwordHash = await argon2.hash('correct-password');
+
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        email: 'rahim@test.com',
+        passwordHash,
+        role: 'USER',
+        failedLoginAttempts: 4,
+        lockoutUntil: null,
+      });
+
+      await expect(
+        service.login({
+          email: 'rahim@test.com',
+          password: 'wrong-password',
+        }),
+      ).rejects.toThrow('Too many failed attempts. This account has been locked for 15 minutes.');
+
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: {
+          failedLoginAttempts: 5,
+          lockoutUntil: expect.any(Date) as Date,
+        },
+      });
+    });
+
+    it('should throw UnauthorizedException and block login if account is locked out', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        email: 'rahim@test.com',
+        passwordHash: 'hash',
+        role: 'USER',
+        failedLoginAttempts: 5,
+        lockoutUntil: new Date(Date.now() + 10 * 60 * 1000), // locked for 10 more minutes
+      });
+
+      await expect(
+        service.login({
+          email: 'rahim@test.com',
+          password: 'password',
+        }),
+      ).rejects.toThrow(/This account is temporarily locked/);
+    });
+
+    it('should reset failed login attempts on successful login', async () => {
+      const password = 'Test1234!';
+      const passwordHash = await argon2.hash(password);
+
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        email: 'rahim@test.com',
+        passwordHash,
+        role: 'USER',
+        name: 'Rahim',
+        phone: '01712345678',
+        isVerified: true,
+        failedLoginAttempts: 3,
+        lockoutUntil: null,
+        createdAt: new Date(),
+      });
+
+      mockPrismaService.refreshToken.create.mockResolvedValue({});
+
+      await service.login({
+        email: 'rahim@test.com',
+        password,
+      });
+
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: {
+          failedLoginAttempts: 0,
+          lockoutUntil: null,
+        },
+      });
     });
 
     it('should throw UnauthorizedException for non-existent email', async () => {

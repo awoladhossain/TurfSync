@@ -46,6 +46,8 @@ model User {
   emailVerifyExpires   DateTime?
   passwordResetToken   String?
   passwordResetExpires DateTime?
+  failedLoginAttempts  Int       @default(0)
+  lockoutUntil         DateTime?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 

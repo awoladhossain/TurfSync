@@ -62,6 +62,7 @@ export class AuthController {
   // * register
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
+  @Throttle({ short: { ttl: 60000, limit: 3 } })
   async register(
     @Body() dto: RegisterDto,
     @Res({ passthrough: true }) response: express.Response,
@@ -182,6 +183,7 @@ export class AuthController {
   // * verify email
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ short: { ttl: 60000, limit: 5 } })
   verifyEmail(@Body() dto: VerifyEmailDto) {
     return this.authService.verifyEmail(dto.token);
   }
@@ -189,6 +191,7 @@ export class AuthController {
   // * forgot password
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ short: { ttl: 60000, limit: 3 } })
   forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto.email);
   }
@@ -196,6 +199,7 @@ export class AuthController {
   // * reset password
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ short: { ttl: 60000, limit: 5 } })
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto.token, dto.password);
   }
