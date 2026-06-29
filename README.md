@@ -9,6 +9,8 @@
 - [Tech Stack](#tech-stack)
 - [Features](#features)
 - [Project Structure](#project-structure)
+- [Payment & Notification System Architecture](#payment--notification-system-architecture)
+- [Authentication & Session Security Hardening](#authentication--session-security-hardening)
 - [Installation](#installation)
 - [Running the Application](#running-the-application)
 - [Monitoring & Observability](#monitoring--observability)
@@ -175,6 +177,32 @@ sequenceDiagram
 * Decouples time-consuming and non-blocking tasks (like sending SMS notifications or emails) from the main request/response lifecycle.
 * **`handlePaymentSuccess`**: Pulls the job from Redis, extracts the payment details, and triggers the SMS simulation for booking confirmation.
 * **`handlePaymentFailed`**: Extracts the failure reason and payment details, sending a failure alert SMS to the user.
+
+---
+
+## 🔒 Authentication & Session Security Hardening
+
+To prevent unauthorized access, brute-force attacks, and token theft, TurfBook implements a hardened security model for user authentication and session management:
+
+### 1. Brute-Force Protection (Account Lockout Policy)
+* **Failed Attempt Tracking**: The system tracks the number of consecutive incorrect password attempts (`failedLoginAttempts`) on the `User` model.
+* **Temporary Account Lockout**: After **5 consecutive failed attempts**, the account is locked for **15 minutes** (`lockoutUntil` timestamp is set).
+* **Cooldown Message**: Any subsequent login attempt during the lockout period is immediately rejected with a custom error message detailing the remaining minutes.
+* **Lockout Reset**: The failed attempts counter and lockout timestamp are fully reset to default state (`0`/`null`) upon:
+  * A successful login.
+  * A successful password reset through the verified email flow.
+
+### 2. Refresh Token Rotation (RTR)
+* **Single-Use Tokens**: Every time a client requests a new Access Token using their Refresh Token, the old Refresh Token is permanently deleted, and a brand-new Refresh Token is issued. This prevents replay attacks if a token is intercepted.
+* **Token Hashing (SHA-256)**: Refresh tokens are hashed using SHA-256 before being stored in the database. This ensures that even if the database is compromised, an attacker cannot extract or reuse active session tokens.
+
+### 3. Session Invalidation & Multi-Device Logout
+* **Logout Current**: Revokes and deletes the specific refresh token associated with the current session.
+* **Logout All Devices**: Allows users to terminate all active sessions across all devices (e.g., in case of a security breach) by wiping out all refresh tokens linked to their `userId`.
+
+### 4. Advanced Cryptographic Protections
+* **Argon2id Hashing**: User passwords are saved as hashes created with Argon2id (OWASP recommended parameters: memory cost 19MB, time cost 2, parallelism 1), providing maximum resistance to GPU-based hash-cracking attacks.
+* **Secure Cookie Authentication**: Cookies are used with the `HttpOnly`, `Secure` (production), and `SameSite=Lax` flags to prevent XSS-based token extraction.
 
 ---
 
