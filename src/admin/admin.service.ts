@@ -114,6 +114,17 @@ export class AdminService {
     const days = period === 'daily' ? 30 : period === 'weekly' ? 12 : 12;
     await Promise.resolve();
     const result = [];
+
+    for (let i = days - 1; i >= 0; i--) {
+      const data = new Date();
+
+      if (period === 'daily') {
+        data.setDate(data.getDate() - i);
+        data.setHours(0, 0, 0, 0);
+        const nextDate = new Date(data);
+        nextDate.setDate(nextDate.getDate() + 1);
+      }
+    }
     this.logger.log(
       `Fetching analytics for ${period} spanning ${days} periods`,
     );
