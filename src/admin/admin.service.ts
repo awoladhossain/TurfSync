@@ -1,5 +1,5 @@
 import { PrismaService } from '@/prisma/prisma.service';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { BookingStatus, PaymentStatus, Prisma } from '@prisma/client';
 
 @Injectable()
@@ -232,5 +232,25 @@ export class AdminService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  // toggole user status
+  async toggleUserStatus(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) {
+      throw new NotFoundException(`User with ID: ${userId} not found`);
+    }
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { isVerified: !user.isVerified },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        isVerified: true,
+      },
+    });
   }
 }
