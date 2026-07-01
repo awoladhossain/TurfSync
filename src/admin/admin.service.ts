@@ -6,7 +6,7 @@ import { BookingStatus, PaymentStatus } from '@prisma/client';
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   // dashboard Overview
   async getDashboardOverview() {
@@ -113,18 +113,69 @@ export class AdminService {
   async getRevenueAnalytics(period: 'daily' | 'weekly' | 'monthly' = 'daily') {
     const days = period === 'daily' ? 30 : period === 'weekly' ? 12 : 12;
     await Promise.resolve();
-    const result = [];
+    const result: { label: string; revenue: number; bookings: number }[] = [];
 
     for (let i = days - 1; i >= 0; i--) {
-      const data = new Date();
+      let startDate: Date;
+      let endDate: Date;
+      let label: string;
 
       if (period === 'daily') {
-        data.setDate(data.getDate() - i);
-        data.setHours(0, 0, 0, 0);
-        const nextDate = new Date(data);
-        nextDate.setDate(nextDate.getDate() + 1);
+        startDate = new Date();
+        startDate.setDate(startDate.getDate() - i);
+        startDate.setHours(0, 0, 0, 0);
+
+        endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 1);
+
+        label = startDate.toISOString().split('T')[0];
+      } else if (period === 'weekly') {
+        endDate = new Date();
+        endDate.setDate(endDate.getDate() - i * 7 + 1);
+        endDate.setHours(0, 0, 0, 0);
+
+        startDate = new Date(endDate);
+        startDate.setDate(startDate.getDate() - 7);
+
+        label = startDate.toISOString().split('T')[0];
+      } else {
+        endDate = new Date();
+        endDate.setMonth(endDate.getMonth() - i + 1);
+        endDate.setDate(1);
+        endDate.setHours(0, 0, 0, 0);
+
+        startDate = new Date(endDate);
+        startDate.setMonth(startDate.getMonth() - 1);
+
+        const year = startDate.getFullYear();
+        const month = String(startDate.getMonth() + 1).padStart(2, '0');
+        label = `${year}-${month}`;
       }
+
+      const [revenue, bookings] = await Promise.all([
+        this.prisma.payment.aggregate({
+          where: {
+            status: PaymentStatus.PAID,
+            paidAt: { gte: startDate, lt: endDate },
+          },
+          _sum: {
+            amount: true,
+          },
+        }),
+        this.prisma.booking.count({
+          where: {
+            createdAt: { gte: startDate, lt: endDate },
+          },
+        }),
+      ]);
+
+      result.push({
+        label,
+        revenue: Number(revenue._sum.amount || 0),
+        bookings,
+      });
     }
+
     this.logger.log(
       `Fetching analytics for ${period} spanning ${days} periods`,
     );
