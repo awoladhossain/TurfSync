@@ -1,12 +1,12 @@
 import { PrismaService } from '@/prisma/prisma.service';
 import { Injectable, Logger } from '@nestjs/common';
-import { BookingStatus, PaymentStatus } from '@prisma/client';
+import { BookingStatus, PaymentStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
 
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   // dashboard Overview
   async getDashboardOverview() {
@@ -110,6 +110,7 @@ export class AdminService {
     };
   }
 
+  // revenue analytics
   async getRevenueAnalytics(period: 'daily' | 'weekly' | 'monthly' = 'daily') {
     const days = period === 'daily' ? 30 : period === 'weekly' ? 12 : 12;
     await Promise.resolve();
@@ -180,5 +181,56 @@ export class AdminService {
       `Fetching analytics for ${period} spanning ${days} periods`,
     );
     return result;
+  }
+
+  // user management
+  async getAllUsers(page = 1, limit = 20, search?: string) {
+    const skip = (page - 1) * limit;
+    const where: Prisma.UserWhereInput = {};
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          role: true,
+          isVerified: true,
+          createdAt: true,
+          _count: {
+            select: {
+              bookings: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.user.count({
+        where,
+      }),
+    ]);
+
+    return {
+      data: users,
+      total,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 }
