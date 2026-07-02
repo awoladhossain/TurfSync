@@ -1,12 +1,17 @@
 import { PrismaService } from '@/prisma/prisma.service';
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { BookingStatus, PaymentStatus, Prisma } from '@prisma/client';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { BookingStatus, PaymentStatus, Prisma, Role } from '@prisma/client';
 
 @Injectable()
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   // dashboard Overview
   async getDashboardOverview() {
@@ -252,5 +257,43 @@ export class AdminService {
         isVerified: true,
       },
     });
+  }
+
+  // make admin
+  async makeAdmin(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isVerified: true,
+      },
+    });
+    if (!user) {
+      throw new NotFoundException(`User with ID: ${userId} not found`);
+    }
+    if (user.role === Role.ADMIN) {
+      throw new BadRequestException(
+        `User with ID: ${userId} is already an admin`,
+      );
+    }
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { role: Role.ADMIN },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        isVerified: true,
+      },
+    });
+
+    //
   }
 }
