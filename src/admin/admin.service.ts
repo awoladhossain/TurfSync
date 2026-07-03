@@ -240,14 +240,14 @@ export class AdminService {
   }
 
   // toggole user status
-  async toggleUserStatus(userId: string) {
+  async toggleUserStatus(userId: string, adminId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
     if (!user) {
       throw new NotFoundException(`User with ID: ${userId} not found`);
     }
-    return this.prisma.user.update({
+    const updatedUser = await this.prisma.user.update({
       where: { id: userId },
       data: { isVerified: !user.isVerified },
       select: {
@@ -257,10 +257,23 @@ export class AdminService {
         isVerified: true,
       },
     });
+
+    await this.createAuditLog({
+      adminId,
+      action: 'USER_STATUS_TOGGLED',
+      targetId: userId,
+      targetType: 'USER',
+      details: {
+        previousStatus: user.isVerified ? 'VERIFIED' : 'UNVERIFIED',
+        newStatus: updatedUser.isVerified ? 'VERIFIED' : 'UNVERIFIED',
+      },
+    });
+
+    return updatedUser;
   }
 
   // make admin
-  async makeAdmin(userId: string) {
+  async makeAdmin(userId: string, adminId: string) {
     const user = await this.prisma.user.findUnique({
       where: {
         id: userId,
@@ -281,7 +294,7 @@ export class AdminService {
         `User with ID: ${userId} is already an admin`,
       );
     }
-    return this.prisma.user.update({
+    const updatedUser = await this.prisma.user.update({
       where: { id: userId },
       data: { role: Role.ADMIN },
       select: {
@@ -293,6 +306,19 @@ export class AdminService {
         isVerified: true,
       },
     });
+
+    await this.createAuditLog({
+      adminId,
+      action: 'USER_PROMOTED_TO_ADMIN',
+      targetId: userId,
+      targetType: 'USER',
+      details: {
+        previousRole: user.role,
+        newRole: Role.ADMIN,
+      },
+    });
+
+    return updatedUser;
   }
   // booking management
   async getAllBookings(
