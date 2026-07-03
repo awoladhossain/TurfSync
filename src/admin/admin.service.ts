@@ -421,4 +421,60 @@ export class AdminService {
       popularSlots,
     };
   }
+
+  // payment management
+  async getPaymentReport(dateFrom?: string, dateTo?: string) {
+    const where: Prisma.PaymentWhereInput = {};
+    if (dateFrom || dateTo) {
+      const createdAtFilter: Prisma.DateTimeFilter = {};
+      if (dateFrom) createdAtFilter.gte = new Date(dateFrom);
+      if (dateTo) createdAtFilter.lte = new Date(dateTo);
+      where.createdAt = createdAtFilter;
+    }
+
+    const [totalPaid, totalFailed, totalRefunded, totalAmount, recentPayments] =
+      await Promise.all([
+        this.prisma.payment.count({
+          where: { ...where, status: PaymentStatus.PAID },
+        }),
+        this.prisma.payment.count({
+          where: { ...where, status: PaymentStatus.FAILED },
+        }),
+        this.prisma.payment.count({
+          where: { ...where, status: PaymentStatus.REFUNDED },
+        }),
+        this.prisma.payment.aggregate({
+          where: { ...where, status: PaymentStatus.PAID },
+          _sum: { amount: true },
+        }),
+        this.prisma.payment.findMany({
+          where,
+          include: {
+            booking: {
+              include: {
+                user: { select: { name: true, phone: true } },
+                turf: { select: { name: true } },
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+        }),
+      ]);
+
+    const totalTransactions = totalPaid + totalFailed + totalRefunded;
+
+    return {
+      summary: {
+        totalPaid,
+        totalFailed,
+        totalRefunded,
+        totalAmount: Number(totalAmount._sum.amount || 0),
+        successRate: totalTransactions
+          ? ((totalPaid / totalTransactions) * 100).toFixed(1)
+          : 0,
+      },
+      recentPayments,
+    };
+  }
 }
