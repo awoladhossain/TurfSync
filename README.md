@@ -11,6 +11,7 @@
 - [Project Structure](#project-structure)
 - [Payment & Notification System Architecture](#payment--notification-system-architecture)
 - [Authentication & Session Security Hardening](#authentication--session-security-hardening)
+- [Administrative Console & Hardening](#administrative-console--hardening)
 - [Installation](#installation)
 - [Running the Application](#running-the-application)
 - [Monitoring & Observability](#monitoring--observability)
@@ -203,6 +204,30 @@ To prevent unauthorized access, brute-force attacks, and token theft, TurfBook i
 ### 4. Advanced Cryptographic Protections
 * **Argon2id Hashing**: User passwords are saved as hashes created with Argon2id (OWASP recommended parameters: memory cost 19MB, time cost 2, parallelism 1), providing maximum resistance to GPU-based hash-cracking attacks.
 * **Secure Cookie Authentication**: Cookies are used with the `HttpOnly`, `Secure` (production), and `SameSite=Lax` flags to prevent XSS-based token extraction.
+
+---
+
+## 🛡️ Administrative Console & Hardening
+
+To ensure secure, high-performance administrative capabilities, TurfBook features a hardened administration module:
+
+### 1. Self-Modification Lockout Prevention
+Admins manage user statuses and assign privileges. To prevent accidental lockout or privilege loss:
+* **Status Toggling Guard**: Admins cannot toggle their own account verification status.
+* **Role Management Guard**: Admins are barred from promoting or demoting themselves. Trying to modify one's own role results in an immediate `ForbiddenException`.
+
+### 2. High-Performance Bulk Revenue Analytics
+Initially, calculating revenue statistics over dynamic time intervals required sequential, single-day database queries in a loop, resulting in $O(N)$ database query complexity.
+* **O(1) Query Pattern**: Refactored to fetch all relevant Bookings and Payments via two unified, indexed bulk queries.
+* **In-Memory Aggregation**: Date grouping, revenue summation, and booking counts are compiled dynamically in-memory, decreasing the database request count by up to 95%.
+
+### 3. Timezone-Safe Slot Auto-Completion
+* **UTC Timezone Safety**: The `BookingCompleteJob` cron executes every 5 minutes to mark confirmed bookings whose time slots have passed as `COMPLETED`. Since slot dates are registered as UTC midnight, slot end times are parsed and constructed using UTC methods (`setUTCHours`) to remain immune to server timezone offsets.
+* **Unified Stale Booking Garbage Collection**: Stale, unpaid `PENDING` bookings are cleaned up automatically in bulk under a single optimized transaction in `BookingService.cleanupStalePendingBookings` (runs every 5 minutes to clear Redis cache and release booked slots).
+
+### 4. Input Sanitization & Type Validation
+* **Query DTO Binding**: Endpoints use specific validation classes (`GetAllUsersDto`, `GetAllBookingsDto`, `GetPaymentReportDto`) extending `PaginationDto`. NestJS `ValidationPipe` automatically transforms string query inputs into validated numbers and validates format bounds (e.g. UUID, Enum, String dates).
+* **Invalid Date Protection**: Methods parse filter date inputs safely and normalize date ranges (start-of-day `00:00:00.000` to end-of-day `23:59:59.999` UTC) to prevent partial day events from being truncated.
 
 ---
 
