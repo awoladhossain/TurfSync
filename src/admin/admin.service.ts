@@ -343,6 +343,25 @@ export class AdminService {
       },
     };
   }
+
+  // admin can manually create booking complete
+  async completeBooking(bookingId: string, adminId: string) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
+    if (!booking) {
+      throw new BadRequestException('Booking not found');
+    }
+    if (booking.status !== BookingStatus.CONFIRMED) {
+      throw new BadRequestException('Only confirmed Bookings can be completed');
+    }
+    const updatedBooking = await this.prisma.booking.update({
+      where: { id: bookingId },
+      data: { status: BookingStatus.COMPLETED },
+    });
+    this.logger.log(
+      `Booking ${bookingId} manually set to COMPLETED by admin ${adminId}`,
+    );
+    return updatedBooking;
+  }
 }
-
-
