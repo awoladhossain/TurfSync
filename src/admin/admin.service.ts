@@ -11,7 +11,7 @@ import { BookingStatus, PaymentStatus, Prisma, Role } from '@prisma/client';
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
 
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   // dashboard Overview
   async getDashboardOverview() {
@@ -293,7 +293,56 @@ export class AdminService {
         isVerified: true,
       },
     });
+  }
+  // booking management
+  async getAllBookings(
+    page = 1,
+    limit = 20,
+    status?: BookingStatus,
+    turfId?: string,
+    dateFrom?: string,
+    dateTo?: string,
+  ) {
+    const skip = (page - 1) * limit;
+    const where: Prisma.BookingWhereInput = {};
 
-    //
+    if (status) where.status = status;
+    if (turfId) where.turfId = turfId;
+    if (dateFrom || dateTo) {
+      where.createdAt = {};
+      if (dateFrom) where.createdAt.gte = new Date(dateFrom);
+      if (dateTo) where.createdAt.lte = new Date(dateTo);
+    }
+
+    const [bookings, total] = await Promise.all([
+      this.prisma.booking.findMany({
+        where,
+        include: {
+          user: { select: { id: true, name: true, phone: true, email: true } },
+          turf: { select: { id: true, name: true, address: true } },
+          slot: true,
+          payment: {
+            select: { id: true, status: true, amount: true, paidAt: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.booking.count({ where }),
+    ]);
+
+    return {
+      data: bookings,
+      total,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 }
+
+
