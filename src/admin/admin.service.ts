@@ -362,6 +362,16 @@ export class AdminService {
     this.logger.log(
       `Booking ${bookingId} manually set to COMPLETED by admin ${adminId}`,
     );
+
+    // Audit log
+    await this.createAuditLog({
+      adminId,
+      action: 'BOOKING_COMPLETED',
+      targetId: bookingId,
+      targetType: 'BOOKING',
+      details: { previousStatus: 'CONFIRMED' },
+    });
+
     return updatedBooking;
   }
 
@@ -477,4 +487,47 @@ export class AdminService {
       recentPayments,
     };
   }
+
+  // Audit log
+  async createAuditLog(data: {
+    adminId: string;
+    action: string;
+    targetId: string;
+    targetType: string;
+    details?: Record<string, unknown>;
+  }): Promise<void> {
+    this.logger.log(
+      `[AUDIT] Admin ${data.adminId} performed action ${data.action} on ${data.targetType} ${data.targetId}`,
+    );
+    if ('auditLog' in this.prisma) {
+      const auditLogDelegate = (
+        this.prisma as unknown as {
+          auditLog: {
+            create: (args: {
+              data: {
+                adminId: string;
+                action: string;
+                targetId: string;
+                targetType: string;
+                details: Record<string, unknown>;
+              };
+            }) => Promise<unknown>;
+          };
+        }
+      ).auditLog;
+
+      const detailsObj: Record<string, unknown> = data.details || {};
+
+      await auditLogDelegate.create({
+        data: {
+          adminId: data.adminId,
+          action: data.action,
+          targetId: data.targetId,
+          targetType: data.targetType,
+          details: detailsObj,
+        },
+      });
+    }
+  }
+  
 }
