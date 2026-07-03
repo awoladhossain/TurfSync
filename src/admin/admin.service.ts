@@ -16,11 +16,11 @@ export class AdminService {
   // dashboard Overview
   async getDashboardOverview() {
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setUTCHours(0, 0, 0, 0);
 
     const thisMonthStart = new Date();
-    thisMonthStart.setDate(1);
-    thisMonthStart.setHours(0, 0, 0, 0);
+    thisMonthStart.setUTCDate(1);
+    thisMonthStart.setUTCHours(0, 0, 0, 0);
 
     const [
       totalUsers,
@@ -108,19 +108,69 @@ export class AdminService {
         cancelled: cancelledBookings,
       },
       revenue: {
-        total: totalRevenue._sum.amount || 0,
-        today: revenueToday._sum.amount || 0,
-        thisMonth: revenueThisMonth._sum.amount || 0,
+        total: Number(totalRevenue._sum.amount || 0),
+        today: Number(revenueToday._sum.amount || 0),
+        thisMonth: Number(revenueThisMonth._sum.amount || 0),
       },
     };
   }
 
-  // revenue analytics
+  // revenue analytics (optimized with bulk DB query and in-memory aggregation)
   async getRevenueAnalytics(period: 'daily' | 'weekly' | 'monthly' = 'daily') {
     const days = period === 'daily' ? 30 : period === 'weekly' ? 12 : 12;
-    await Promise.resolve();
     const result: { label: string; revenue: number; bookings: number }[] = [];
 
+    let rangeStartDate: Date;
+    let rangeEndDate: Date;
+
+    if (period === 'daily') {
+      rangeStartDate = new Date();
+      rangeStartDate.setDate(rangeStartDate.getDate() - (days - 1));
+      rangeStartDate.setUTCHours(0, 0, 0, 0);
+
+      rangeEndDate = new Date();
+      rangeEndDate.setDate(rangeEndDate.getDate() + 1);
+      rangeEndDate.setUTCHours(0, 0, 0, 0);
+    } else if (period === 'weekly') {
+      rangeEndDate = new Date();
+      rangeEndDate.setDate(rangeEndDate.getDate() - 0 * 7 + 1);
+      rangeEndDate.setUTCHours(0, 0, 0, 0);
+
+      rangeStartDate = new Date(rangeEndDate);
+      rangeStartDate.setDate(rangeStartDate.getDate() - days * 7);
+    } else {
+      rangeEndDate = new Date();
+      rangeEndDate.setMonth(rangeEndDate.getMonth() + 1);
+      rangeEndDate.setDate(1);
+      rangeEndDate.setUTCHours(0, 0, 0, 0);
+
+      rangeStartDate = new Date(rangeEndDate);
+      rangeStartDate.setMonth(rangeStartDate.getMonth() - days);
+    }
+
+    // Fetch all paid payments and bookings in this range
+    const [payments, bookings] = await Promise.all([
+      this.prisma.payment.findMany({
+        where: {
+          status: PaymentStatus.PAID,
+          paidAt: { gte: rangeStartDate, lt: rangeEndDate },
+        },
+        select: {
+          amount: true,
+          paidAt: true,
+        },
+      }),
+      this.prisma.booking.findMany({
+        where: {
+          createdAt: { gte: rangeStartDate, lt: rangeEndDate },
+        },
+        select: {
+          createdAt: true,
+        },
+      }),
+    ]);
+
+    // Now group them in memory
     for (let i = days - 1; i >= 0; i--) {
       let startDate: Date;
       let endDate: Date;
@@ -129,16 +179,17 @@ export class AdminService {
       if (period === 'daily') {
         startDate = new Date();
         startDate.setDate(startDate.getDate() - i);
-        startDate.setHours(0, 0, 0, 0);
+        startDate.setUTCHours(0, 0, 0, 0);
 
         endDate = new Date(startDate);
         endDate.setDate(endDate.getDate() + 1);
+        endDate.setUTCHours(0, 0, 0, 0);
 
         label = startDate.toISOString().split('T')[0];
       } else if (period === 'weekly') {
         endDate = new Date();
         endDate.setDate(endDate.getDate() - i * 7 + 1);
-        endDate.setHours(0, 0, 0, 0);
+        endDate.setUTCHours(0, 0, 0, 0);
 
         startDate = new Date(endDate);
         startDate.setDate(startDate.getDate() - 7);
@@ -148,42 +199,38 @@ export class AdminService {
         endDate = new Date();
         endDate.setMonth(endDate.getMonth() - i + 1);
         endDate.setDate(1);
-        endDate.setHours(0, 0, 0, 0);
+        endDate.setUTCHours(0, 0, 0, 0);
 
         startDate = new Date(endDate);
         startDate.setMonth(startDate.getMonth() - 1);
 
-        const year = startDate.getFullYear();
-        const month = String(startDate.getMonth() + 1).padStart(2, '0');
+        const year = startDate.getUTCFullYear();
+        const month = String(startDate.getUTCMonth() + 1).padStart(2, '0');
         label = `${year}-${month}`;
       }
 
-      const [revenue, bookings] = await Promise.all([
-        this.prisma.payment.aggregate({
-          where: {
-            status: PaymentStatus.PAID,
-            paidAt: { gte: startDate, lt: endDate },
-          },
-          _sum: {
-            amount: true,
-          },
-        }),
-        this.prisma.booking.count({
-          where: {
-            createdAt: { gte: startDate, lt: endDate },
-          },
-        }),
-      ]);
+      // Filter in memory
+      const periodPayments = payments.filter(
+        (p) => p.paidAt && p.paidAt >= startDate && p.paidAt < endDate,
+      );
+      const periodBookings = bookings.filter(
+        (b) => b.createdAt >= startDate && b.createdAt < endDate,
+      );
+
+      const totalRevenue = periodPayments.reduce(
+        (sum, p) => sum + Number(p.amount),
+        0,
+      );
 
       result.push({
         label,
-        revenue: Number(revenue._sum.amount || 0),
-        bookings,
+        revenue: totalRevenue,
+        bookings: periodBookings.length,
       });
     }
 
     this.logger.log(
-      `Fetching analytics for ${period} spanning ${days} periods`,
+      `Fetching analytics for ${period} spanning ${days} periods (optimized in-memory)`,
     );
     return result;
   }
@@ -239,8 +286,14 @@ export class AdminService {
     };
   }
 
-  // toggole user status
+  // toggle user status
   async toggleUserStatus(userId: string, adminId: string) {
+    if (userId === adminId) {
+      throw new BadRequestException(
+        'You cannot toggle your own verification status',
+      );
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -274,6 +327,12 @@ export class AdminService {
 
   // make admin
   async makeAdmin(userId: string, adminId: string) {
+    if (userId === adminId) {
+      throw new BadRequestException(
+        'You cannot promote yourself (you are already an admin)',
+      );
+    }
+
     const user = await this.prisma.user.findUnique({
       where: {
         id: userId,
@@ -320,6 +379,51 @@ export class AdminService {
 
     return updatedUser;
   }
+
+  // demote admin
+  async demoteAdmin(userId: string, adminId: string) {
+    if (userId === adminId) {
+      throw new BadRequestException('You cannot demote yourself');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true, name: true, email: true },
+    });
+    if (!user) {
+      throw new NotFoundException(`User with ID: ${userId} not found`);
+    }
+    if (user.role !== Role.ADMIN) {
+      throw new BadRequestException(`User with ID: ${userId} is not an admin`);
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: { role: Role.USER },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        isVerified: true,
+      },
+    });
+
+    await this.createAuditLog({
+      adminId,
+      action: 'ADMIN_DEMOTED_TO_USER',
+      targetId: userId,
+      targetType: 'USER',
+      details: {
+        previousRole: Role.ADMIN,
+        newRole: Role.USER,
+      },
+    });
+
+    return updatedUser;
+  }
+
   // booking management
   async getAllBookings(
     page = 1,
@@ -334,10 +438,30 @@ export class AdminService {
 
     if (status) where.status = status;
     if (turfId) where.turfId = turfId;
+
     if (dateFrom || dateTo) {
-      where.createdAt = {};
-      if (dateFrom) where.createdAt.gte = new Date(dateFrom);
-      if (dateTo) where.createdAt.lte = new Date(dateTo);
+      const createdAtFilter: Prisma.DateTimeFilter = {};
+      if (dateFrom) {
+        const fromDate = new Date(dateFrom);
+        if (isNaN(fromDate.getTime())) {
+          throw new BadRequestException(
+            'Invalid dateFrom format. Expected YYYY-MM-DD.',
+          );
+        }
+        fromDate.setUTCHours(0, 0, 0, 0);
+        createdAtFilter.gte = fromDate;
+      }
+      if (dateTo) {
+        const toDate = new Date(dateTo);
+        if (isNaN(toDate.getTime())) {
+          throw new BadRequestException(
+            'Invalid dateTo format. Expected YYYY-MM-DD.',
+          );
+        }
+        toDate.setUTCHours(23, 59, 59, 999);
+        createdAtFilter.lte = toDate;
+      }
+      where.createdAt = createdAtFilter;
     }
 
     const [bookings, total] = await Promise.all([
@@ -376,7 +500,7 @@ export class AdminService {
       where: { id: bookingId },
     });
     if (!booking) {
-      throw new BadRequestException('Booking not found');
+      throw new NotFoundException('Booking not found');
     }
     if (booking.status !== BookingStatus.CONFIRMED) {
       throw new BadRequestException('Only confirmed Bookings can be completed');
@@ -403,6 +527,13 @@ export class AdminService {
 
   // turf management
   async getTurfAnalytics(turfId: string) {
+    const turfExists = await this.prisma.turf.findUnique({
+      where: { id: turfId },
+    });
+    if (!turfExists) {
+      throw new NotFoundException(`Turf with ID: ${turfId} not found`);
+    }
+
     const [
       totalBookings,
       completedBookings,
@@ -461,10 +592,29 @@ export class AdminService {
   // payment management
   async getPaymentReport(dateFrom?: string, dateTo?: string) {
     const where: Prisma.PaymentWhereInput = {};
+
     if (dateFrom || dateTo) {
       const createdAtFilter: Prisma.DateTimeFilter = {};
-      if (dateFrom) createdAtFilter.gte = new Date(dateFrom);
-      if (dateTo) createdAtFilter.lte = new Date(dateTo);
+      if (dateFrom) {
+        const fromDate = new Date(dateFrom);
+        if (isNaN(fromDate.getTime())) {
+          throw new BadRequestException(
+            'Invalid dateFrom format. Expected YYYY-MM-DD.',
+          );
+        }
+        fromDate.setUTCHours(0, 0, 0, 0);
+        createdAtFilter.gte = fromDate;
+      }
+      if (dateTo) {
+        const toDate = new Date(dateTo);
+        if (isNaN(toDate.getTime())) {
+          throw new BadRequestException(
+            'Invalid dateTo format. Expected YYYY-MM-DD.',
+          );
+        }
+        toDate.setUTCHours(23, 59, 59, 999);
+        createdAtFilter.lte = toDate;
+      }
       where.createdAt = createdAtFilter;
     }
 
