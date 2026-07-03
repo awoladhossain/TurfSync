@@ -22,7 +22,8 @@ export class GetAllBookingsDto extends PaginationDto {
 
   @ApiPropertyOptional({
     example: '2026-07-01',
-    description: 'Filter bookings created starting from this date (Format: YYYY-MM-DD)',
+    description:
+      'Filter bookings created starting from this date (Format: YYYY-MM-DD)',
   })
   @IsOptional()
   @IsString()

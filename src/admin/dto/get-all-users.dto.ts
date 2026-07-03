@@ -5,7 +5,8 @@ import { IsOptional, IsString } from 'class-validator';
 export class GetAllUsersDto extends PaginationDto {
   @ApiPropertyOptional({
     example: 'John',
-    description: 'Search string to filter users by name, email, or phone number',
+    description:
+      'Search string to filter users by name, email, or phone number',
   })
   @IsOptional()
   @IsString()
