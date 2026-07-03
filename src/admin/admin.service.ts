@@ -364,4 +364,61 @@ export class AdminService {
     );
     return updatedBooking;
   }
+
+  // turf management
+  async getTurfAnalytics(turfId: string) {
+    const [
+      totalBookings,
+      completedBookings,
+      cancelledBookings,
+      totalRevenue,
+      avgRating,
+      popularSlots,
+    ] = await Promise.all([
+      this.prisma.booking.count({ where: { turfId } }),
+      this.prisma.booking.count({
+        where: { turfId, status: BookingStatus.COMPLETED },
+      }),
+      this.prisma.booking.count({
+        where: { turfId, status: BookingStatus.CANCELLED },
+      }),
+      this.prisma.payment.aggregate({
+        where: {
+          booking: { turfId },
+          status: PaymentStatus.PAID,
+        },
+        _sum: { amount: true },
+      }),
+      this.prisma.review.aggregate({
+        where: { turfId },
+        _avg: { rating: true },
+        _count: true,
+      }),
+      this.prisma.booking.groupBy({
+        by: ['slotId'],
+        where: { turfId },
+        _count: { slotId: true },
+        orderBy: { _count: { slotId: 'desc' } },
+        take: 5,
+      }),
+    ]);
+    return {
+      bookings: {
+        total: totalBookings,
+        completed: completedBookings,
+        cancelled: cancelledBookings,
+        completionRate: totalBookings
+          ? ((completedBookings / totalBookings) * 100).toFixed(1)
+          : 0,
+      },
+      revenue: {
+        total: Number(totalRevenue._sum.amount || 0),
+      },
+      rating: {
+        average: avgRating._avg.rating?.toFixed(1) || 0,
+        total: avgRating._count,
+      },
+      popularSlots,
+    };
+  }
 }
