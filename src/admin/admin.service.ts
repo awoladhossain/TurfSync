@@ -494,40 +494,40 @@ export class AdminService {
     action: string;
     targetId: string;
     targetType: string;
-    details?: Record<string, unknown>;
+    details?: Prisma.InputJsonValue;
   }): Promise<void> {
     this.logger.log(
       `[AUDIT] Admin ${data.adminId} performed action ${data.action} on ${data.targetType} ${data.targetId}`,
     );
-    if ('auditLog' in this.prisma) {
-      const auditLogDelegate = (
-        this.prisma as unknown as {
-          auditLog: {
-            create: (args: {
-              data: {
-                adminId: string;
-                action: string;
-                targetId: string;
-                targetType: string;
-                details: Record<string, unknown>;
-              };
-            }) => Promise<unknown>;
-          };
-        }
-      ).auditLog;
-
-      const detailsObj: Record<string, unknown> = data.details || {};
-
-      await auditLogDelegate.create({
-        data: {
-          adminId: data.adminId,
-          action: data.action,
-          targetId: data.targetId,
-          targetType: data.targetType,
-          details: detailsObj,
-        },
-      });
-    }
+    await this.prisma.auditLog.create({
+      data: {
+        adminId: data.adminId,
+        action: data.action,
+        targetId: data.targetId,
+        targetType: data.targetType,
+        details: data.details || {},
+      },
+    });
   }
-  
+
+  async getAuditLogs(page = 1, limit = 50) {
+    const skip = (page - 1) * limit;
+
+    const [logs, total] = await Promise.all([
+      this.prisma.auditLog.findMany({
+        include: {
+          admin: { select: { name: true, email: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.auditLog.count(),
+    ]);
+
+    return {
+      data: logs,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
+  }
 }
