@@ -54,6 +54,7 @@ model User {
   refreshTokens RefreshToken[]
   bookings      Booking[]
   reviews       Review[]
+  adminLogs     AuditLog[]     @relation("AdminLogs")
 
   @@map("users")
 }
@@ -182,4 +183,22 @@ model Review {
   @@index([turfId])
   @@index([userId])
   @@map("reviews")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  adminId    String
+  action     String
+  targetId   String
+  targetType String
+  details    Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  admin  User    @relation("AdminLogs", fields: [adminId], references: [id])
+
+
+  @@index([adminId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
