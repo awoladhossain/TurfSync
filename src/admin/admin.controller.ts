@@ -1,5 +1,6 @@
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { Roles } from '@/common/decorators/roles.decorator';
+import { PaginationDto } from '@/common/dto/pagination.dto';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@/common/guards/roles.guard';
 import { ParseUUIDPipe } from '@/common/pipes/parse-uuid.pipe';
@@ -15,11 +16,13 @@ import {
 import {
   ApiBearerAuth,
   ApiOperation,
-  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import { BookingStatus, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
 import { AdminService } from './admin.service';
+import { GetAllBookingsDto } from './dto/get-all-bookings.dto';
+import { GetAllUsersDto } from './dto/get-all-users.dto';
+import { GetPaymentReportDto } from './dto/get-payment-report.dto';
 
 @ApiTags('Admin')
 @Controller('admin')
@@ -37,12 +40,6 @@ export class AdminController {
 
   @Get('analytics/revenue')
   @ApiOperation({ summary: 'Get revenue analytics for a period' })
-  @ApiQuery({
-    name: 'period',
-    required: false,
-    enum: ['daily', 'weekly', 'monthly'],
-    default: 'daily',
-  })
   getRevenueAnalytics(
     @Query('period') period: 'daily' | 'weekly' | 'monthly' = 'daily',
   ) {
@@ -51,15 +48,8 @@ export class AdminController {
 
   @Get('users')
   @ApiOperation({ summary: 'Get list of users with pagination and search' })
-  @ApiQuery({ name: 'page', required: false, type: Number, default: 1 })
-  @ApiQuery({ name: 'limit', required: false, type: Number, default: 20 })
-  @ApiQuery({ name: 'search', required: false, type: String })
-  getAllUsers(
-    @Query('page') page = '1',
-    @Query('limit') limit = '20',
-    @Query('search') search?: string,
-  ) {
-    return this.adminService.getAllUsers(+page, +limit, search);
+  getAllUsers(@Query() query: GetAllUsersDto) {
+    return this.adminService.getAllUsers(query.page, query.limit, query.search);
   }
 
   @Patch('users/:userId/toggle-status')
@@ -91,37 +81,14 @@ export class AdminController {
 
   @Get('bookings')
   @ApiOperation({ summary: 'Get list of bookings with pagination and filters' })
-  @ApiQuery({ name: 'page', required: false, type: Number, default: 1 })
-  @ApiQuery({ name: 'limit', required: false, type: Number, default: 20 })
-  @ApiQuery({ name: 'status', required: false, enum: BookingStatus })
-  @ApiQuery({ name: 'turfId', required: false, type: String })
-  @ApiQuery({
-    name: 'dateFrom',
-    required: false,
-    type: String,
-    description: 'Format: YYYY-MM-DD',
-  })
-  @ApiQuery({
-    name: 'dateTo',
-    required: false,
-    type: String,
-    description: 'Format: YYYY-MM-DD',
-  })
-  getAllBookings(
-    @Query('page') page = '1',
-    @Query('limit') limit = '20',
-    @Query('status') status?: BookingStatus,
-    @Query('turfId') turfId?: string,
-    @Query('dateFrom') dateFrom?: string,
-    @Query('dateTo') dateTo?: string,
-  ) {
+  getAllBookings(@Query() query: GetAllBookingsDto) {
     return this.adminService.getAllBookings(
-      +page,
-      +limit,
-      status,
-      turfId,
-      dateFrom,
-      dateTo,
+      query.page,
+      query.limit,
+      query.status,
+      query.turfId,
+      query.dateFrom,
+      query.dateTo,
     );
   }
 
@@ -142,30 +109,13 @@ export class AdminController {
 
   @Get('payments/report')
   @ApiOperation({ summary: 'Get payment report with date range filters' })
-  @ApiQuery({
-    name: 'dateFrom',
-    required: false,
-    type: String,
-    description: 'Format: YYYY-MM-DD',
-  })
-  @ApiQuery({
-    name: 'dateTo',
-    required: false,
-    type: String,
-    description: 'Format: YYYY-MM-DD',
-  })
-  getPaymentReport(
-    @Query('dateFrom') dateFrom?: string,
-    @Query('dateTo') dateTo?: string,
-  ) {
-    return this.adminService.getPaymentReport(dateFrom, dateTo);
+  getPaymentReport(@Query() query: GetPaymentReportDto) {
+    return this.adminService.getPaymentReport(query.dateFrom, query.dateTo);
   }
 
   @Get('audit-logs')
   @ApiOperation({ summary: 'Get list of administrative audit logs' })
-  @ApiQuery({ name: 'page', required: false, type: Number, default: 1 })
-  @ApiQuery({ name: 'limit', required: false, type: Number, default: 50 })
-  getAuditLogs(@Query('page') page = '1', @Query('limit') limit = '50') {
-    return this.adminService.getAuditLogs(+page, +limit);
+  getAuditLogs(@Query() query: PaginationDto) {
+    return this.adminService.getAuditLogs(query.page, query.limit);
   }
 }
