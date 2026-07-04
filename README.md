@@ -14,6 +14,7 @@
 - [Administrative Console & Hardening](#administrative-console--hardening)
 - [Installation](#installation)
 - [Running the Application](#running-the-application)
+- [Kubernetes (K8s) Deployment](K8S_README.md)
 - [Monitoring & Observability](#monitoring--observability)
 - [Testing](#testing)
 - [API Documentation](#api-documentation)
@@ -309,6 +310,9 @@ docker-compose logs -f
 # Stop services
 docker-compose down
 ```
+
+### Using Kubernetes
+For deploying TurfBook in a Kubernetes cluster (locally with Minikube/Kind or in production with AWS EKS / Google GKE), please refer to the detailed [Kubernetes Implementation Guide](K8S_README.md) in the project root.
 
 
 ---
