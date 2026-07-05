@@ -206,6 +206,9 @@ To prevent unauthorized access, brute-force attacks, and token theft, TurfBook i
 * **Argon2id Hashing**: User passwords are saved as hashes created with Argon2id (OWASP recommended parameters: memory cost 19MB, time cost 2, parallelism 1), providing maximum resistance to GPU-based hash-cracking attacks.
 * **Secure Cookie Authentication**: Cookies are used with the `HttpOnly`, `Secure` (production), and `SameSite=Lax` flags to prevent XSS-based token extraction.
 
+### 5. RolesGuard Fail-Closed (Default-Deny) Security Posture
+* **Strict Authorization Guard**: `RolesGuard` is hardened to operate on a **fail-closed** strategy. If the guard is applied to a route or class but the required roles metadata (via `@Roles(...)`) is omitted, the guard will immediately log a warning and deny access (`HTTP 403 Forbidden`) by default instead of failing open.
+
 ---
 
 ## 🛡️ Administrative Console & Hardening
@@ -217,10 +220,11 @@ Admins manage user statuses and assign privileges. To prevent accidental lockout
 * **Status Toggling Guard**: Admins cannot toggle their own account verification status.
 * **Role Management Guard**: Admins are barred from promoting or demoting themselves. Trying to modify one's own role results in an immediate `ForbiddenException`.
 
-### 2. High-Performance Bulk Revenue Analytics
+### 2. High-Performance Database-Level Revenue Analytics
 Initially, calculating revenue statistics over dynamic time intervals required sequential, single-day database queries in a loop, resulting in $O(N)$ database query complexity.
-* **O(1) Query Pattern**: Refactored to fetch all relevant Bookings and Payments via two unified, indexed bulk queries.
-* **In-Memory Aggregation**: Date grouping, revenue summation, and booking counts are compiled dynamically in-memory, decreasing the database request count by up to 95%.
+* **Database-Level Grouping**: Refactored to perform grouping and sum aggregation directly inside PostgreSQL using `date_trunc` and `$queryRaw` bulk queries.
+* **O(1) Map Indexing**: Aggregated database groups are mapped in-memory using JavaScript `Map` objects, dropping retrieval and group building complexity from $O(N \times M)$ to $O(N + M)$ and reducing DB query load by up to 95%.
+* **Database Indexes**: Optimized query execution plans by adding database-level indexes on `booking.createdAt` and `payment.paidAt` fields.
 
 ### 3. Timezone-Safe Slot Auto-Completion
 * **UTC Timezone Safety**: The `BookingCompleteJob` cron executes every 5 minutes to mark confirmed bookings whose time slots have passed as `COMPLETED`. Since slot dates are registered as UTC midnight, slot end times are parsed and constructed using UTC methods (`setUTCHours`) to remain immune to server timezone offsets.
@@ -229,6 +233,22 @@ Initially, calculating revenue statistics over dynamic time intervals required s
 ### 4. Input Sanitization & Type Validation
 * **Query DTO Binding**: Endpoints use specific validation classes (`GetAllUsersDto`, `GetAllBookingsDto`, `GetPaymentReportDto`) extending `PaginationDto`. NestJS `ValidationPipe` automatically transforms string query inputs into validated numbers and validates format bounds (e.g. UUID, Enum, String dates).
 * **Invalid Date Protection**: Methods parse filter date inputs safely and normalize date ranges (start-of-day `00:00:00.000` to end-of-day `23:59:59.999` UTC) to prevent partial day events from being truncated.
+
+### 5. Centralized Pagination Utilities
+* **Standardized Pagination Helper**: The codebase leverages a centralized `paginate` helper (`src/common/utils/pagination.util.ts`) that guarantees clean, uniform, and type-safe pagination responses across all entity queries.
+
+---
+
+## 🔒 Concurrency Control & Webhook Idempotency
+
+### 1. Row-Level Transaction Locking
+To protect critical resources from race conditions (e.g., duplicate booking confirmations or concurrent stale cleanup interference), the application implements strict row-level database locking using `SELECT ... FOR UPDATE` raw queries within PostgreSQL transactions.
+
+### 2. Stripe Webhook Idempotency
+Stripe webhooks are designed to be processed exactly once:
+* **Webhook Log Register**: Incoming events are logged in the database inside the same transaction that applies booking state modifications.
+* **Unique Key Constraint**: Re-delivered webhook payloads fail atomically at the database key constraint level on the `WebhookEvent` model, preventing double confirmation or duplicate side-effects.
+* **Stripe Idempotency Key**: Stripe Payment Intent creations include an idempotency key (`payment-intent-${booking.id}`) to enforce payment request uniqueness at the API level.
 
 ---
 
