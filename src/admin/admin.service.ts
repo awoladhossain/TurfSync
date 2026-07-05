@@ -1,6 +1,13 @@
 import { PrismaService } from '@/prisma/prisma.service';
 import { paginate } from '@/common/utils/pagination.util';
 import {
+  startOfUTCDay,
+  startOfUTCWeek,
+  startOfUTCMonth,
+  addUTCDays,
+  addUTCMonths,
+} from '@/common/utils/date.util';
+import {
   BadRequestException,
   Injectable,
   Logger,
@@ -124,29 +131,17 @@ export class AdminService {
     let rangeStartDate: Date;
     let rangeEndDate: Date;
 
+    const now = new Date();
+
     if (period === 'daily') {
-      rangeStartDate = new Date();
-      rangeStartDate.setDate(rangeStartDate.getDate() - (days - 1));
-      rangeStartDate.setUTCHours(0, 0, 0, 0);
-
-      rangeEndDate = new Date();
-      rangeEndDate.setDate(rangeEndDate.getDate() + 1);
-      rangeEndDate.setUTCHours(0, 0, 0, 0);
+      rangeEndDate = addUTCDays(startOfUTCDay(now), 1); // Start of tomorrow UTC
+      rangeStartDate = addUTCDays(rangeEndDate, -days); // 30 days ago
     } else if (period === 'weekly') {
-      rangeEndDate = new Date();
-      rangeEndDate.setDate(rangeEndDate.getDate() - 0 * 7 + 1);
-      rangeEndDate.setUTCHours(0, 0, 0, 0);
-
-      rangeStartDate = new Date(rangeEndDate);
-      rangeStartDate.setDate(rangeStartDate.getDate() - days * 7);
+      rangeEndDate = addUTCDays(startOfUTCWeek(now), 7); // Start of next Monday UTC
+      rangeStartDate = addUTCDays(rangeEndDate, -days * 7); // 12 weeks ago
     } else {
-      rangeEndDate = new Date();
-      rangeEndDate.setMonth(rangeEndDate.getMonth() + 1);
-      rangeEndDate.setDate(1);
-      rangeEndDate.setUTCHours(0, 0, 0, 0);
-
-      rangeStartDate = new Date(rangeEndDate);
-      rangeStartDate.setMonth(rangeStartDate.getMonth() - days);
+      rangeEndDate = addUTCMonths(startOfUTCMonth(now), 1); // Start of next month UTC
+      rangeStartDate = addUTCMonths(rangeEndDate, -days); // 12 months ago
     }
 
     // Fetch all paid payments and bookings in this range
@@ -178,33 +173,16 @@ export class AdminService {
       let label: string;
 
       if (period === 'daily') {
-        startDate = new Date();
-        startDate.setDate(startDate.getDate() - i);
-        startDate.setUTCHours(0, 0, 0, 0);
-
-        endDate = new Date(startDate);
-        endDate.setDate(endDate.getDate() + 1);
-        endDate.setUTCHours(0, 0, 0, 0);
-
+        endDate = addUTCDays(rangeEndDate, -i);
+        startDate = addUTCDays(endDate, -1);
         label = startDate.toISOString().split('T')[0];
       } else if (period === 'weekly') {
-        endDate = new Date();
-        endDate.setDate(endDate.getDate() - i * 7 + 1);
-        endDate.setUTCHours(0, 0, 0, 0);
-
-        startDate = new Date(endDate);
-        startDate.setDate(startDate.getDate() - 7);
-
+        endDate = addUTCDays(rangeEndDate, -i * 7);
+        startDate = addUTCDays(endDate, -7);
         label = startDate.toISOString().split('T')[0];
       } else {
-        endDate = new Date();
-        endDate.setMonth(endDate.getMonth() - i + 1);
-        endDate.setDate(1);
-        endDate.setUTCHours(0, 0, 0, 0);
-
-        startDate = new Date(endDate);
-        startDate.setMonth(startDate.getMonth() - 1);
-
+        endDate = addUTCMonths(rangeEndDate, -i);
+        startDate = addUTCMonths(endDate, -1);
         const year = startDate.getUTCFullYear();
         const month = String(startDate.getUTCMonth() + 1).padStart(2, '0');
         label = `${year}-${month}`;
