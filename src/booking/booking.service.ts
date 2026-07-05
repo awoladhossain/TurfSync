@@ -1,5 +1,6 @@
 import { MetricsService } from '@/common/metrics/metrics.service';
 import { PrismaService } from '@/prisma/prisma.service';
+import { paginate } from '@/common/utils/pagination.util';
 import {
   BOOKING_CANCELLED_JOB,
   BOOKING_CONFIRMED_JOB,
@@ -201,9 +202,10 @@ export class BookingService {
 
   // find my bookings
   async findMyBookings(userId: string, page = 1, limit = 10) {
-    const skip = (page - 1) * limit;
-    const [bookings, total] = await Promise.all([
-      this.prisma.booking.findMany({
+    return paginate(
+      this.prisma.booking,
+      { page, limit },
+      {
         where: { userId },
         include: {
           turf: { select: { id: true, name: true, address: true, city: true } },
@@ -213,15 +215,8 @@ export class BookingService {
           },
         },
         orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
-      this.prisma.booking.count({ where: { userId } }),
-    ]);
-    return {
-      data: bookings,
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-    };
+      },
+    );
   }
 
   // find one
@@ -302,11 +297,10 @@ export class BookingService {
 
   // admin - find all bookings
   async findAll(page = 1, limit = 10) {
-    const skip = (page - 1) * limit;
-    const [bookings, total] = await Promise.all([
-      this.prisma.booking.findMany({
-        skip,
-        take: limit,
+    return paginate(
+      this.prisma.booking,
+      { page, limit },
+      {
         include: {
           user: { select: { id: true, name: true, phone: true } },
           turf: { select: { id: true, name: true, address: true } },
@@ -316,13 +310,8 @@ export class BookingService {
           },
         },
         orderBy: { createdAt: 'desc' },
-      }),
-      this.prisma.booking.count(),
-    ]);
-    return {
-      data: bookings,
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-    };
+      },
+    );
   }
 
   @Cron(CronExpression.EVERY_5_MINUTES)

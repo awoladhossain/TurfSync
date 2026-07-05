@@ -1,5 +1,9 @@
 import { PrismaService } from '@/prisma/prisma.service';
 import {
+  getPaginationParams,
+  createPaginatedResponse,
+} from '@/common/utils/pagination.util';
+import {
   BadRequestException,
   ForbiddenException,
   Injectable,
@@ -68,7 +72,12 @@ export class ReviewService {
 
   // get turf Review
   async getTurfReviews(turfId: string, page: number = 1, limit: number = 10) {
-    const skip = (page - 1) * limit;
+    const {
+      skip,
+      take,
+      page: p,
+      limit: l,
+    } = getPaginationParams({ page, limit });
 
     const [reviews, total, avgRating] = await Promise.all([
       this.prisma.review.findMany({
@@ -84,7 +93,7 @@ export class ReviewService {
           createdAt: 'desc',
         },
         skip,
-        take: limit,
+        take,
       }),
       this.prisma.review.count({
         where: { turfId },
@@ -107,11 +116,8 @@ export class ReviewService {
     }));
 
     return {
-      reviews: formattedReview,
-      total,
+      ...createPaginatedResponse(formattedReview, total, p, l),
       avgRating: avgRating._avg.rating ?? 0,
-      page,
-      limit,
     };
   }
 

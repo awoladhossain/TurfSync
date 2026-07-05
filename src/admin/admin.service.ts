@@ -1,4 +1,5 @@
 import { PrismaService } from '@/prisma/prisma.service';
+import { paginate } from '@/common/utils/pagination.util';
 import {
   BadRequestException,
   Injectable,
@@ -237,7 +238,6 @@ export class AdminService {
 
   // user management
   async getAllUsers(page = 1, limit = 20, search?: string) {
-    const skip = (page - 1) * limit;
     const where: Prisma.UserWhereInput = {};
 
     if (search) {
@@ -248,8 +248,10 @@ export class AdminService {
       ];
     }
 
-    const [users, total] = await Promise.all([
-      this.prisma.user.findMany({
+    return paginate(
+      this.prisma.user,
+      { page, limit },
+      {
         where,
         select: {
           id: true,
@@ -266,24 +268,8 @@ export class AdminService {
           },
         },
         orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
-      this.prisma.user.count({
-        where,
-      }),
-    ]);
-
-    return {
-      data: users,
-      total,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
       },
-    };
+    );
   }
 
   // toggle user status
@@ -433,7 +419,6 @@ export class AdminService {
     dateFrom?: string,
     dateTo?: string,
   ) {
-    const skip = (page - 1) * limit;
     const where: Prisma.BookingWhereInput = {};
 
     if (status) where.status = status;
@@ -464,8 +449,10 @@ export class AdminService {
       where.createdAt = createdAtFilter;
     }
 
-    const [bookings, total] = await Promise.all([
-      this.prisma.booking.findMany({
+    return paginate(
+      this.prisma.booking,
+      { page, limit },
+      {
         where,
         include: {
           user: { select: { id: true, name: true, phone: true, email: true } },
@@ -476,22 +463,8 @@ export class AdminService {
           },
         },
         orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
-      this.prisma.booking.count({ where }),
-    ]);
-
-    return {
-      data: bookings,
-      total,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
       },
-    };
+    );
   }
 
   // admin can manually create booking complete
@@ -687,23 +660,15 @@ export class AdminService {
   }
 
   async getAuditLogs(page = 1, limit = 50) {
-    const skip = (page - 1) * limit;
-
-    const [logs, total] = await Promise.all([
-      this.prisma.auditLog.findMany({
+    return paginate(
+      this.prisma.auditLog,
+      { page, limit },
+      {
         include: {
           admin: { select: { name: true, email: true } },
         },
         orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
-      this.prisma.auditLog.count(),
-    ]);
-
-    return {
-      data: logs,
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-    };
+      },
+    );
   }
 }

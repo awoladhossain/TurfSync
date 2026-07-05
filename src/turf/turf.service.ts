@@ -1,6 +1,7 @@
 import { PrismaService } from '@/prisma/prisma.service';
 import { RedisLockService } from '@/redis/redis-lock.service';
 import { SlotService } from '@/slot/slot.service';
+import { paginate } from '@/common/utils/pagination.util';
 import {
   BadRequestException,
   ConflictException,
@@ -46,16 +47,8 @@ export class TurfService {
 
   // find all - Cache-Aside Pattern
   async findAll(query: QueryTurfDto) {
-    const {
-      city,
-      sportType,
-      search,
-      minPrice,
-      maxPrice,
-      availableDate,
-      page = 1,
-      limit = 10,
-    } = query;
+    const { city, sportType, search, minPrice, maxPrice, availableDate } =
+      query;
     // cache key
     const cacheKey = `turf:list:${JSON.stringify(query)}`;
 
@@ -63,7 +56,6 @@ export class TurfService {
     if (cached) {
       return cached;
     }
-    const skip = (page - 1) * limit;
     const where: Prisma.TurfWhereInput = { isActive: true };
 
     if (city) {
@@ -97,36 +89,21 @@ export class TurfService {
       };
     }
 
-    const [turfs, total] = await Promise.all([
-      this.prisma.turf.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: availableDate
-          ? {
-              slots: {
-                where: {
-                  date: new Date(availableDate),
-                  isBooked: false,
-                },
-                select: { id: true, startTime: true, endTime: true },
+    const result = await paginate(this.prisma.turf, query, {
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: availableDate
+        ? {
+            slots: {
+              where: {
+                date: new Date(availableDate),
+                isBooked: false,
               },
-            }
-          : undefined,
-      }),
-      this.prisma.turf.count({ where }),
-    ]);
-
-    const result = {
-      data: turfs,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+              select: { id: true, startTime: true, endTime: true },
+            },
+          }
+        : undefined,
+    });
     await this.redis.set(cacheKey, result, 300); // cache for 5 minutes
     return result;
   }
