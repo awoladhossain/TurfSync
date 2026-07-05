@@ -1,4 +1,9 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Role, User } from '@prisma/client';
 import { ROLES_KEY } from '../decorators/roles.decorator';
@@ -9,6 +14,8 @@ import { ROLES_KEY } from '../decorators/roles.decorator';
  */
 @Injectable()
 export class RolesGuard implements CanActivate {
+  private readonly logger = new Logger(RolesGuard.name);
+
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
@@ -17,7 +24,10 @@ export class RolesGuard implements CanActivate {
       context.getClass(),
     ]);
     if (!requiredRoles) {
-      return true;
+      this.logger.warn(
+        `RolesGuard applied to route but no roles metadata found. Denying access by default.`,
+      );
+      return false;
     }
     // Get the user from the request object. The user is added to the request object by the AuthGuard.
     const request = context.switchToHttp().getRequest<{ user?: User }>();
