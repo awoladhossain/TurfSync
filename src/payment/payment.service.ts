@@ -75,20 +75,25 @@ export class PaymentService {
     const amountInCents = Math.round(Number(booking.totalAmount) * 100);
 
     // stripe payment intent
-    const paymentIntent = await this.stripe.paymentIntents.create({
-      amount: amountInCents,
-      currency: this.configService.get('STRIPE_CURRENCY', 'usd'),
-      metadata: {
-        bookingId: booking.id,
-        userId,
-        turfName: booking.turf.name,
-        slotTime: `${booking.slot.startTime} - ${booking.slot.endTime}`,
+    const paymentIntent = await this.stripe.paymentIntents.create(
+      {
+        amount: amountInCents,
+        currency: this.configService.get('STRIPE_CURRENCY', 'usd'),
+        metadata: {
+          bookingId: booking.id,
+          userId,
+          turfName: booking.turf.name,
+          slotTime: `${booking.slot.startTime} - ${booking.slot.endTime}`,
+        },
+        // automatic payment methods - card, bank transfer, etc
+        automatic_payment_methods: {
+          enabled: true,
+        },
       },
-      // automatic payment methods - card, bank transfer, etc
-      automatic_payment_methods: {
-        enabled: true,
+      {
+        idempotencyKey: `payment-intent-${booking.id}`,
       },
-    });
+    );
     //  stripe payment save in database
     const payment = await this.prisma.payment.upsert({
       where: { bookingId: dto.bookingId },
@@ -137,13 +142,32 @@ export class PaymentService {
       );
       throw new BadRequestException('Invalid webhook signature');
     }
-    this.logger.log(`Stripe webhook received: ${event.type}`);
+    this.logger.log(`Stripe webhook received: ${event.type} | ID: ${event.id}`);
 
-    // Idempotency check: check if event has already been processed or is processing
+    // event type handler
     try {
-      await this.prisma.webhookEvent.create({
-        data: { id: event.id },
-      });
+      switch (event.type) {
+        case 'payment_intent.succeeded':
+          await this.handlePaymentSuccess(
+            event.id,
+            event.data.object as StripePaymentIntent,
+          );
+          break;
+        case 'payment_intent.payment_failed':
+          await this.handlePaymentFailed(
+            event.id,
+            event.data.object as StripePaymentIntent,
+          );
+          break;
+        case 'payment_intent.processing':
+          await this.handlePaymentProcessing(
+            event.id,
+            event.data.object as StripePaymentIntent,
+          );
+          break;
+        default:
+          this.logger.log(`Unhandled event type: ${event.type}`);
+      }
     } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
@@ -156,31 +180,13 @@ export class PaymentService {
       }
       throw err;
     }
-
-    // event type handler
-    switch (event.type) {
-      case 'payment_intent.succeeded':
-        await this.handlePaymentSuccess(
-          event.data.object as StripePaymentIntent,
-        );
-        break;
-      case 'payment_intent.payment_failed':
-        await this.handlePaymentFailed(
-          event.data.object as StripePaymentIntent,
-        );
-        break;
-      case 'payment_intent.processing':
-        await this.handlePaymentProcessing(
-          event.data.object as StripePaymentIntent,
-        );
-        break;
-      default:
-        this.logger.log(`Unhandled event type: ${event.type}`);
-    }
     return { success: true };
   }
 
-  private async handlePaymentSuccess(paymentIntent: StripePaymentIntent) {
+  private async handlePaymentSuccess(
+    eventId: string,
+    paymentIntent: StripePaymentIntent,
+  ) {
     const payment = await this.prisma.payment.findUnique({
       where: {
         stripePaymentIntentId: paymentIntent.id,
@@ -213,6 +219,11 @@ export class PaymentService {
     }
     // DB transaction - payment + booking update
     await this.prisma.$transaction(async (tx) => {
+      // Register webhook event to guarantee database-level idempotency
+      await tx.webhookEvent.create({
+        data: { id: eventId },
+      });
+
       // Lock the booking to prevent concurrent status updates (e.g. stale cleanup)
       const bookings = await tx.$queryRaw<{ id: string; status: string }[]>`
         SELECT id, status FROM bookings WHERE id = ${payment.bookingId} FOR UPDATE
@@ -278,7 +289,10 @@ export class PaymentService {
   }
 
   // ─── Payment Failed ─────────────────────────────────
-  private async handlePaymentFailed(paymentIntent: StripePaymentIntent) {
+  private async handlePaymentFailed(
+    eventId: string,
+    paymentIntent: StripePaymentIntent,
+  ) {
     const payment = await this.prisma.payment.findUnique({
       where: { stripePaymentIntentId: paymentIntent.id },
       include: {
@@ -297,12 +311,19 @@ export class PaymentService {
     const failureReason =
       paymentIntent.last_payment_error?.message || 'Payment failed';
 
-    await this.prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        status: PaymentStatus.FAILED,
-        failureReason,
-      },
+    await this.prisma.$transaction(async (tx) => {
+      // Register webhook event to guarantee database-level idempotency
+      await tx.webhookEvent.create({
+        data: { id: eventId },
+      });
+
+      await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: PaymentStatus.FAILED,
+          failureReason,
+        },
+      });
     });
 
     this.logger.warn(
@@ -331,10 +352,20 @@ export class PaymentService {
   }
 
   // ─── Payment Processing ─────────────────────────────
-  private async handlePaymentProcessing(paymentIntent: StripePaymentIntent) {
-    await this.prisma.payment.updateMany({
-      where: { stripePaymentIntentId: paymentIntent.id },
-      data: { status: PaymentStatus.PROCESSING },
+  private async handlePaymentProcessing(
+    eventId: string,
+    paymentIntent: StripePaymentIntent,
+  ) {
+    await this.prisma.$transaction(async (tx) => {
+      // Register webhook event to guarantee database-level idempotency
+      await tx.webhookEvent.create({
+        data: { id: eventId },
+      });
+
+      await tx.payment.updateMany({
+        where: { stripePaymentIntentId: paymentIntent.id },
+        data: { status: PaymentStatus.PROCESSING },
+      });
     });
   }
 
