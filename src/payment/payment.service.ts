@@ -213,6 +213,29 @@ export class PaymentService {
     }
     // DB transaction - payment + booking update
     await this.prisma.$transaction(async (tx) => {
+      // Lock the booking to prevent concurrent status updates (e.g. stale cleanup)
+      const bookings = await tx.$queryRaw<{ id: string; status: string }[]>`
+        SELECT id, status FROM bookings WHERE id = ${payment.bookingId} FOR UPDATE
+      `;
+      const txBooking = bookings[0];
+      if (!txBooking) {
+        throw new NotFoundException('Booking not found');
+      }
+      if (txBooking.status !== BookingStatus.PENDING) {
+        this.logger.warn(
+          `Booking ${payment.bookingId} is no longer PENDING (status: ${txBooking.status}). Marking payment as PAID but keeping booking CANCELLED.`,
+        );
+        await tx.payment.update({
+          where: { id: payment.id },
+          data: {
+            status: PaymentStatus.PAID,
+            stripeChargeId: paymentIntent.latest_charge as string,
+            paidAt: new Date(),
+          },
+        });
+        return;
+      }
+
       await tx.payment.update({
         where: { id: payment.id },
         data: {
@@ -379,6 +402,11 @@ export class PaymentService {
 
     // 1. payment table status changed from paid to refund
     await this.prisma.$transaction(async (tx) => {
+      // Lock the booking to prevent concurrent status updates
+      await tx.$queryRaw`
+        SELECT id FROM bookings WHERE id = ${bookingId} FOR UPDATE
+      `;
+
       await tx.payment.update({
         where: { id: payment.id },
         data: {
@@ -393,11 +421,21 @@ export class PaymentService {
           status: BookingStatus.CANCELLED,
         },
       });
-      // 3. slot table status changed from booked to unbooked
-      await tx.slot.update({
-        where: { id: payment.booking.slot.id },
-        data: { isBooked: false },
+      // 3. slot table status changed from booked to unbooked (only if no other active booking)
+      const activeBookings = await tx.booking.findMany({
+        where: {
+          slotId: payment.booking.slot.id,
+          status: { in: [BookingStatus.PENDING, BookingStatus.CONFIRMED] },
+          id: { not: bookingId },
+        },
       });
+
+      if (activeBookings.length === 0) {
+        await tx.slot.update({
+          where: { id: payment.booking.slot.id },
+          data: { isBooked: false },
+        });
+      }
     });
 
     this.logger.log(`Booking refunded: ${bookingId} | Refund ID: ${refund.id}`);

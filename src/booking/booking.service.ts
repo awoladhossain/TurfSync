@@ -263,15 +263,44 @@ export class BookingService {
     }
 
     await this.prisma.$transaction(async (tx) => {
+      const bookings = await tx.$queryRaw<
+        { id: string; status: string; slotId: string }[]
+      >`
+        SELECT id, status, "slotId" FROM bookings WHERE id = ${id} FOR UPDATE
+      `;
+      const txBooking = bookings[0];
+      if (!txBooking) {
+        throw new NotFoundException('Booking not found');
+      }
+      if (txBooking.status === BookingStatus.CANCELLED) {
+        throw new BadRequestException('Booking is already cancelled');
+      }
+
       await tx.booking.update({
         where: { id },
         data: { status: BookingStatus.CANCELLED },
       });
 
-      await tx.slot.update({
-        where: { id: booking.slotId },
-        data: { isBooked: false },
+      // Lock slot to prevent concurrent mutations
+      await tx.$queryRaw`
+        SELECT id FROM slots WHERE id = ${txBooking.slotId} FOR UPDATE
+      `;
+
+      // Check if there are other active bookings for the slot
+      const activeBookings = await tx.booking.findMany({
+        where: {
+          slotId: txBooking.slotId,
+          status: { in: [BookingStatus.PENDING, BookingStatus.CONFIRMED] },
+          id: { not: id },
+        },
       });
+
+      if (activeBookings.length === 0) {
+        await tx.slot.update({
+          where: { id: txBooking.slotId },
+          data: { isBooked: false },
+        });
+      }
     });
 
     //  cache clear
@@ -317,7 +346,7 @@ export class BookingService {
   @Cron(CronExpression.EVERY_5_MINUTES)
   async cleanupStalePendingBookings() {
     const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-    const staleBookings = await this.prisma.booking.findMany({
+    const candidateBookings = await this.prisma.booking.findMany({
       where: {
         status: BookingStatus.PENDING,
         createdAt: { lt: fifteenMinutesAgo },
@@ -329,37 +358,88 @@ export class BookingService {
       },
     });
 
-    if (staleBookings.length === 0) {
+    if (candidateBookings.length === 0) {
       return;
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    const candidateIds = candidateBookings.map((b) => b.id);
+
+    const actualCancelled = await this.prisma.$transaction(async (tx) => {
+      const staleBookings = await tx.$queryRaw<
+        { id: string; slotId: string; turfId: string }[]
+      >`
+        SELECT id, "slotId", "turfId"
+        FROM bookings
+        WHERE id = ANY(${candidateIds})
+        AND status = 'PENDING'
+        FOR UPDATE
+      `;
+
+      if (staleBookings.length === 0) {
+        return [];
+      }
+
+      const staleIds = staleBookings.map((b) => b.id);
+
       await tx.booking.updateMany({
         where: {
-          id: { in: staleBookings.map((b) => b.id) },
+          id: { in: staleIds },
+          status: BookingStatus.PENDING,
         },
         data: {
           status: BookingStatus.CANCELLED,
         },
       });
 
-      await tx.slot.updateMany({
+      const slotIds = staleBookings.map((b) => b.slotId);
+
+      // Lock slots to prevent concurrent updates from booking attempts
+      await tx.$queryRaw`
+        SELECT id FROM slots WHERE id = ANY(${slotIds}) FOR UPDATE
+      `;
+
+      // Find if there are other active bookings (PENDING or CONFIRMED) for these slots
+      const activeBookings = await tx.booking.findMany({
         where: {
-          id: { in: staleBookings.map((b) => b.slotId) },
+          slotId: { in: slotIds },
+          status: { in: [BookingStatus.PENDING, BookingStatus.CONFIRMED] },
+          id: { notIn: staleIds },
         },
-        data: {
-          isBooked: false,
+        select: {
+          slotId: true,
         },
       });
+
+      const slotsWithActiveBookings = new Set(
+        activeBookings.map((b) => b.slotId),
+      );
+      const slotsToRelease = slotIds.filter(
+        (id) => !slotsWithActiveBookings.has(id),
+      );
+
+      if (slotsToRelease.length > 0) {
+        await tx.slot.updateMany({
+          where: {
+            id: { in: slotsToRelease },
+          },
+          data: {
+            isBooked: false,
+          },
+        });
+      }
+
+      return staleBookings;
     });
 
-    const turfIds = Array.from(new Set(staleBookings.map((b) => b.turfId)));
-    for (const turfId of turfIds) {
-      await this.redis.delByPattern(`slots:available:${turfId}:*`);
-    }
+    if (actualCancelled.length > 0) {
+      const turfIds = Array.from(new Set(actualCancelled.map((b) => b.turfId)));
+      for (const turfId of turfIds) {
+        await this.redis.delByPattern(`slots:available:${turfId}:*`);
+      }
 
-    this.logger.log(
-      `🗑️ Cleaned up ${staleBookings.length} stale PENDING bookings`,
-    );
+      this.logger.log(
+        `🗑️ Cleaned up ${actualCancelled.length} stale PENDING bookings`,
+      );
+    }
   }
 }

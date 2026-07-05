@@ -4,7 +4,11 @@ jest.mock('uuid', () => ({
 
 import { NOTIFICATION_QUEUE } from '@/queue/queue.constant';
 import { getQueueToken } from '@nestjs/bull';
-import { BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisLockService } from '../redis/redis-lock.service';
@@ -20,6 +24,7 @@ const mockPrismaService = {
     findMany: jest.fn(),
     count: jest.fn(),
     create: jest.fn(),
+    update: jest.fn(),
     updateMany: jest.fn(),
   },
   slot: { update: jest.fn(), updateMany: jest.fn() },
@@ -77,7 +82,6 @@ describe('BookingService', () => {
     });
 
     it('should throw BadRequestException when lock not acquired', async () => {
-      // Lock could not be acquired
       mockRedisLockService.acquireLock.mockResolvedValue(null);
 
       await expect(service.create(createBookingDto, userId)).rejects.toThrow(
@@ -100,7 +104,6 @@ describe('BookingService', () => {
         slot: { startTime: '09:00', endTime: '10:00' },
       };
 
-      // Interactive transaction mock: execute the callback with the mocked client
       mockPrismaService.$transaction.mockImplementation(
         (callback: (client: typeof mockPrismaService) => unknown) => {
           mockPrismaService.$queryRaw.mockResolvedValue([
@@ -131,6 +134,55 @@ describe('BookingService', () => {
     });
   });
 
+  describe('cancel', () => {
+    it('should throw NotFoundException if booking not found', async () => {
+      mockPrismaService.booking.findUnique.mockResolvedValue(null);
+      await expect(service.cancel('booking-1', 'user-1')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should throw ForbiddenException if user is not authorized', async () => {
+      mockPrismaService.booking.findUnique.mockResolvedValue({
+        id: 'booking-1',
+        userId: 'user-2',
+        status: 'PENDING',
+      });
+      await expect(service.cancel('booking-1', 'user-1')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('should cancel booking successfully and release slot if no other active bookings', async () => {
+      const mockBooking = {
+        id: 'booking-1',
+        userId: 'user-1',
+        status: 'PENDING',
+        slotId: 'slot-1',
+        turfId: 'turf-1',
+        slot: { id: 'slot-1' },
+        user: { id: 'user-1' },
+      };
+      mockPrismaService.booking.findUnique.mockResolvedValue(mockBooking);
+      mockPrismaService.$transaction.mockImplementation(
+        (cb: (client: typeof mockPrismaService) => unknown) => {
+          mockPrismaService.$queryRaw
+            .mockResolvedValueOnce([mockBooking]) // booking lock
+            .mockResolvedValueOnce([]); // slot lock
+          mockPrismaService.booking.findMany.mockResolvedValueOnce([]); // active check
+          return cb(mockPrismaService);
+        },
+      );
+
+      const result = await service.cancel('booking-1', 'user-1');
+      expect(result).toEqual({ message: 'Booking cancelled successfully' });
+      expect(mockPrismaService.slot.update).toHaveBeenCalledWith({
+        where: { id: 'slot-1' },
+        data: { isBooked: false },
+      });
+    });
+  });
+
   describe('cleanupStalePendingBookings', () => {
     it('should do nothing if no stale bookings exist', async () => {
       mockPrismaService.booking.findMany.mockResolvedValue([]);
@@ -146,14 +198,19 @@ describe('BookingService', () => {
       ];
       mockPrismaService.booking.findMany.mockResolvedValue(mockStaleBookings);
       mockPrismaService.$transaction.mockImplementation(
-        (cb: (client: typeof mockPrismaService) => unknown) =>
-          cb(mockPrismaService),
+        (cb: (client: typeof mockPrismaService) => unknown) => {
+          mockPrismaService.$queryRaw
+            .mockResolvedValueOnce(mockStaleBookings)
+            .mockResolvedValueOnce([]);
+          mockPrismaService.booking.findMany.mockResolvedValueOnce([]);
+          return cb(mockPrismaService);
+        },
       );
 
       await service.cleanupStalePendingBookings();
 
       expect(mockPrismaService.booking.updateMany).toHaveBeenCalledWith({
-        where: { id: { in: ['booking-1', 'booking-2'] } },
+        where: { id: { in: ['booking-1', 'booking-2'] }, status: 'PENDING' },
         data: { status: 'CANCELLED' },
       });
       expect(mockPrismaService.slot.updateMany).toHaveBeenCalledWith({
@@ -166,6 +223,35 @@ describe('BookingService', () => {
       expect(mockRedisLockService.delByPattern).toHaveBeenCalledWith(
         'slots:available:turf-2:*',
       );
+    });
+
+    it('should cancel stale bookings but NOT release slots if they have other active bookings', async () => {
+      const mockStaleBookings = [
+        { id: 'booking-1', slotId: 'slot-1', turfId: 'turf-1' },
+      ];
+      mockPrismaService.booking.findMany.mockResolvedValueOnce(
+        mockStaleBookings,
+      );
+
+      mockPrismaService.$transaction.mockImplementation(
+        (cb: (client: typeof mockPrismaService) => unknown) => {
+          mockPrismaService.$queryRaw
+            .mockResolvedValueOnce(mockStaleBookings)
+            .mockResolvedValueOnce([]);
+          mockPrismaService.booking.findMany.mockResolvedValueOnce([
+            { slotId: 'slot-1' },
+          ]);
+          return cb(mockPrismaService);
+        },
+      );
+
+      await service.cleanupStalePendingBookings();
+
+      expect(mockPrismaService.booking.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['booking-1'] }, status: 'PENDING' },
+        data: { status: 'CANCELLED' },
+      });
+      expect(mockPrismaService.slot.updateMany).not.toHaveBeenCalled();
     });
   });
 });
