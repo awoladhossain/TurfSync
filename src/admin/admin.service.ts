@@ -144,67 +144,86 @@ export class AdminService {
       rangeStartDate = addUTCMonths(rangeEndDate, -days); // 12 months ago
     }
 
-    // Fetch all paid payments and bookings in this range
-    const [payments, bookings] = await Promise.all([
-      this.prisma.payment.findMany({
-        where: {
-          status: PaymentStatus.PAID,
-          paidAt: { gte: rangeStartDate, lt: rangeEndDate },
-        },
-        select: {
-          amount: true,
-          paidAt: true,
-        },
-      }),
-      this.prisma.booking.findMany({
-        where: {
-          createdAt: { gte: rangeStartDate, lt: rangeEndDate },
-        },
-        select: {
-          createdAt: true,
-        },
-      }),
+    const interval =
+      period === 'daily' ? 'day' : period === 'weekly' ? 'week' : 'month';
+
+    const [paymentGroups, bookingGroups] = await Promise.all([
+      this.prisma.$queryRaw<{ period: Date; revenue: number | string }[]>`
+        SELECT 
+          date_trunc(${interval}, "paidAt") as period,
+          SUM(amount) as revenue
+        FROM payments
+        WHERE status = 'PAID' AND "paidAt" >= ${rangeStartDate} AND "paidAt" < ${rangeEndDate}
+        GROUP BY period
+      `,
+      this.prisma.$queryRaw<{ period: Date; count: bigint | number }[]>`
+        SELECT 
+          date_trunc(${interval}, "createdAt") as period,
+          COUNT(id) as count
+        FROM bookings
+        WHERE "createdAt" >= ${rangeStartDate} AND "createdAt" < ${rangeEndDate}
+        GROUP BY period
+      `,
     ]);
+
+    const revenueMap = new Map<string, number>();
+    for (const group of paymentGroups) {
+      if (!group.period) continue;
+      const date = new Date(group.period);
+      let key: string;
+      if (period === 'daily' || period === 'weekly') {
+        key = date.toISOString().split('T')[0];
+      } else {
+        const year = date.getUTCFullYear();
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        key = `${year}-${month}`;
+      }
+      revenueMap.set(key, Number(group.revenue || 0));
+    }
+
+    const bookingMap = new Map<string, number>();
+    for (const group of bookingGroups) {
+      if (!group.period) continue;
+      const date = new Date(group.period);
+      let key: string;
+      if (period === 'daily' || period === 'weekly') {
+        key = date.toISOString().split('T')[0];
+      } else {
+        const year = date.getUTCFullYear();
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        key = `${year}-${month}`;
+      }
+      bookingMap.set(key, Number(group.count || 0));
+    }
 
     // Now group them in memory
     for (let i = days - 1; i >= 0; i--) {
       let startDate: Date;
-      let endDate: Date;
       let label: string;
 
       if (period === 'daily') {
-        endDate = addUTCDays(rangeEndDate, -i);
+        const endDate = addUTCDays(rangeEndDate, -i);
         startDate = addUTCDays(endDate, -1);
         label = startDate.toISOString().split('T')[0];
       } else if (period === 'weekly') {
-        endDate = addUTCDays(rangeEndDate, -i * 7);
+        const endDate = addUTCDays(rangeEndDate, -i * 7);
         startDate = addUTCDays(endDate, -7);
         label = startDate.toISOString().split('T')[0];
       } else {
-        endDate = addUTCMonths(rangeEndDate, -i);
+        const endDate = addUTCMonths(rangeEndDate, -i);
         startDate = addUTCMonths(endDate, -1);
         const year = startDate.getUTCFullYear();
         const month = String(startDate.getUTCMonth() + 1).padStart(2, '0');
         label = `${year}-${month}`;
       }
 
-      // Filter in memory
-      const periodPayments = payments.filter(
-        (p) => p.paidAt && p.paidAt >= startDate && p.paidAt < endDate,
-      );
-      const periodBookings = bookings.filter(
-        (b) => b.createdAt >= startDate && b.createdAt < endDate,
-      );
-
-      const totalRevenue = periodPayments.reduce(
-        (sum, p) => sum + Number(p.amount),
-        0,
-      );
+      const totalRevenue = revenueMap.get(label) || 0;
+      const bookingsCount = bookingMap.get(label) || 0;
 
       result.push({
         label,
         revenue: totalRevenue,
-        bookings: periodBookings.length,
+        bookings: bookingsCount,
       });
     }
 

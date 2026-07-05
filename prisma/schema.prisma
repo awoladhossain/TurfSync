@@ -141,6 +141,7 @@ model Booking {
   @@index([userId, createdAt]) // for faster lookups of a user's bookings
   @@index([turfId, status]) // for faster lookups of bookings by turf and status
   @@index([status]) // for faster lookups of bookings by status
+  @@index([createdAt]) // for faster date-range queries in analytics
   @@map("bookings")
 }
 
@@ -164,6 +165,7 @@ model Payment {
 
   @@index([status])
   @@index([stripePaymentIntentId])
+  @@index([paidAt]) // for faster date-range queries in analytics
   @@map("payments")
 }
 
