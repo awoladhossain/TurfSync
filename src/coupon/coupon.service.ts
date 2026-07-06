@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { DiscountType } from '@prisma/client';
 import { CreateCouponDto } from './dto/create-coupon.dto';
+import { UpdateCouponDto } from './dto/update-coupon.dto';
 
 @Injectable()
 export class CouponService {
@@ -142,6 +143,13 @@ export class CouponService {
 
   // ─── Admin: Coupon CRUD ──────────────────────────────
   async create(dto: CreateCouponDto) {
+    const exists = await this.prisma.coupon.findUnique({
+      where: { code: dto.code.toUpperCase() },
+    });
+    if (exists) {
+      throw new BadRequestException('Coupon code already exists');
+    }
+
     return this.prisma.coupon.create({
       data: {
         ...dto,
@@ -167,6 +175,37 @@ export class CouponService {
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
+
+  async findOne(id: string) {
+    const coupon = await this.prisma.coupon.findUnique({
+      where: { id },
+      include: { _count: { select: { couponUsages: true } } },
+    });
+    if (!coupon) throw new NotFoundException('Coupon not found');
+    return coupon;
+  }
+
+  async update(id: string, dto: UpdateCouponDto) {
+    const coupon = await this.prisma.coupon.findUnique({ where: { id } });
+    if (!coupon) throw new NotFoundException('Coupon not found');
+
+    if (dto.code) {
+      const codeUpper = dto.code.toUpperCase();
+      const exists = await this.prisma.coupon.findFirst({
+        where: { code: codeUpper, NOT: { id } },
+      });
+      if (exists) {
+        throw new BadRequestException('Coupon code already exists');
+      }
+      dto.code = codeUpper;
+    }
+
+    return this.prisma.coupon.update({
+      where: { id },
+      data: dto,
+    });
+  }
+
   async toggleActive(id: string) {
     const coupon = await this.prisma.coupon.findUnique({ where: { id } });
     if (!coupon) throw new NotFoundException('Coupon not found');
@@ -175,5 +214,21 @@ export class CouponService {
       where: { id },
       data: { isActive: !coupon.isActive },
     });
+  }
+
+  async delete(id: string) {
+    const coupon = await this.prisma.coupon.findUnique({
+      where: { id },
+      include: { _count: { select: { couponUsages: true } } },
+    });
+    if (!coupon) throw new NotFoundException('Coupon not found');
+
+    if (coupon._count.couponUsages > 0) {
+      throw new BadRequestException(
+        'Cannot delete coupon as it has already been used in bookings. Consider toggling it to inactive instead.',
+      );
+    }
+
+    return this.prisma.coupon.delete({ where: { id } });
   }
 }
