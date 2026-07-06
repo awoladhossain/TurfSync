@@ -1,3 +1,4 @@
+import { paginate } from '@/common/utils/pagination.util';
 import { PrismaService } from '@/prisma/prisma.service';
 import {
   BadRequestException,
@@ -159,21 +160,14 @@ export class CouponService {
   }
 
   async findAll(page = 1, limit = 20) {
-    const skip = (page - 1) * limit;
-    const [coupons, total] = await Promise.all([
-      this.prisma.coupon.findMany({
+    return paginate(
+      this.prisma.coupon,
+      { page, limit },
+      {
         include: { _count: { select: { couponUsages: true } } },
         orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
-      this.prisma.coupon.count(),
-    ]);
-
-    return {
-      data: coupons,
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-    };
+      },
+    );
   }
 
   async findOne(id: string) {
