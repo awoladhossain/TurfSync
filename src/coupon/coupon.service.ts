@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DiscountType } from '@prisma/client';
+import { CreateCouponDto } from './dto/create-coupon.dto';
 
 @Injectable()
 export class CouponService {
@@ -136,6 +137,43 @@ export class CouponService {
         where: { id: couponId },
         data: { usedCount: { increment: 1 } },
       });
+    });
+  }
+
+  // ─── Admin: Coupon CRUD ──────────────────────────────
+  async create(dto: CreateCouponDto) {
+    return this.prisma.coupon.create({
+      data: {
+        ...dto,
+        code: dto.code.toUpperCase(),
+      },
+    });
+  }
+
+  async findAll(page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+    const [coupons, total] = await Promise.all([
+      this.prisma.coupon.findMany({
+        include: { _count: { select: { couponUsages: true } } },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.coupon.count(),
+    ]);
+
+    return {
+      data: coupons,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
+  }
+  async toggleActive(id: string) {
+    const coupon = await this.prisma.coupon.findUnique({ where: { id } });
+    if (!coupon) throw new NotFoundException('Coupon not found');
+
+    return this.prisma.coupon.update({
+      where: { id },
+      data: { isActive: !coupon.isActive },
     });
   }
 }
