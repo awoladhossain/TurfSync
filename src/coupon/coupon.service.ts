@@ -1,5 +1,10 @@
 import { PrismaService } from '@/prisma/prisma.service';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { DiscountType } from '@prisma/client';
 
 @Injectable()
 export class CouponService {
@@ -51,7 +56,7 @@ export class CouponService {
     let discount = 0;
     const discountVal = Number(coupon.discountValue);
 
-    if (coupon.discountType === 'PERCENTAGE') {
+    if (coupon.discountType === DiscountType.PERCENTAGE) {
       discount = (bookingAmount * discountVal) / 100;
 
       // Max discount cap
@@ -75,5 +80,62 @@ export class CouponService {
       discount: Math.round(discount * 100) / 100,
       finalAmount: Math.max(finalAmount, 0),
     };
+  }
+
+  async applyCoupon(
+    couponId: string,
+    userId: string,
+    bookingId: string,
+    discount: number,
+  ) {
+    await this.prisma.$transaction(async (tx) => {
+      // 1. Lock the coupon row for update to prevent concurrent over-use
+      const coupons = await tx.$queryRaw<
+        {
+          id: string;
+          isActive: boolean;
+          usageLimit: number | null;
+          usedCount: number;
+          userUsageLimit: number;
+        }[]
+      >`
+        SELECT id, "isActive", "usageLimit", "usedCount", "userUsageLimit"
+        FROM coupons
+        WHERE id = ${couponId}
+        FOR UPDATE
+      `;
+      const coupon = coupons[0];
+
+      if (!coupon) {
+        throw new NotFoundException('Coupon not found');
+      }
+
+      // 2. Re-verify active status and usage limits inside the lock
+      if (!coupon.isActive) {
+        throw new BadRequestException('Coupon is inactive');
+      }
+
+      if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
+        throw new BadRequestException('Coupon usage limit has been reached');
+      }
+
+      // 3. Re-verify user's specific usage limit inside the lock
+      const userUsageCount = await tx.couponUsage.count({
+        where: { couponId, userId },
+      });
+      if (userUsageCount >= coupon.userUsageLimit) {
+        throw new BadRequestException('You have already used this coupon');
+      }
+
+      // 4. Create usage record and increment coupon usage count
+      await tx.couponUsage.create({
+        data: { couponId, userId, bookingId, discount },
+      });
+
+      await tx.coupon.update({
+        where: { id: couponId },
+        data: { usedCount: { increment: 1 } },
+      });
+    });
   }
 }
