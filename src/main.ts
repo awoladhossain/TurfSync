@@ -1,4 +1,5 @@
 import { Logger, ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
@@ -15,7 +16,10 @@ async function bootstrap() {
     rawBody: true,
   });
 
-  app.use(cookieParser());
+  const configService = app.get(ConfigService);
+
+  const cookieSecret = configService.get<string>('COOKIE_SECRET');
+  app.use(cookieParser(cookieSecret));
   app.use(helmet());
 
   // global prefix for all routes
@@ -35,40 +39,48 @@ async function bootstrap() {
   );
 
   // cors configuration
+  const allowedOrigins = configService.get<string>('ALLOWED_ORIGINS');
   app.enableCors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
-    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    origin: allowedOrigins ? allowedOrigins.split(',') : '*',
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,
   });
 
-  const config = new DocumentBuilder()
-    .setTitle('TurfBook API Dashboard')
-    .setDescription('Premium Turf Booking Application Backend Endpoints')
-    .setVersion('1.0')
-    .addBearerAuth(
-      {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        description: 'Login to get access to protected routes',
+  // Conditionally enable Swagger API Docs (Disabled in production unless explicitly enabled)
+  const isProduction = configService.get<string>('NODE_ENV') === 'production';
+  const showSwagger =
+    configService.get<string>('SHOW_SWAGGER') === 'true' || !isProduction;
+
+  if (showSwagger) {
+    const config = new DocumentBuilder()
+      .setTitle('TurfBook API Dashboard')
+      .setDescription('Premium Turf Booking Application Backend Endpoints')
+      .setVersion('1.0')
+      .addBearerAuth(
+        {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          description: 'Login to get access to protected routes',
+        },
+        'JWT',
+      )
+      .addTag('Auth', 'Registration, Login, Token management')
+      .addTag('Turfs', 'Turf listing and management')
+      .addTag('Bookings', 'Slot booking and cancellation')
+      .addTag('Payments', 'Stripe payment integration')
+      .addTag('Admin', 'Admin only endpoints')
+      .build();
+
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api/docs', app, document, {
+      swaggerOptions: {
+        persistAuthorization: true, // keep the token after refresh
       },
-      'JWT',
-    )
-    .addTag('Auth', 'Registration, Login, Token management')
-    .addTag('Turfs', 'Turf listing and management')
-    .addTag('Bookings', 'Slot booking and cancellation')
-    .addTag('Payments', 'Stripe payment integration')
-    .addTag('Admin', 'Admin only endpoints')
-    .build();
+    });
+  }
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document, {
-    swaggerOptions: {
-      persistAuthorization: true, // keep the token after refresh
-    },
-  });
-
-  const port = process.env.PORT || 4000;
+  const port = parseInt(configService.get<string>('PORT', '4000'), 10);
   await app.listen(port);
   new Logger('NestApplication').log(
     `TurfBook running on: http://localhost:${port}/api`,
