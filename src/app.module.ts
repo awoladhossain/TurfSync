@@ -1,6 +1,6 @@
 import { BullModule } from '@nestjs/bull';
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
@@ -33,23 +33,29 @@ import { UploadModule } from './upload/upload.module';
       isGlobal: true,
     }),
     // rate limiter module
-    ThrottlerModule.forRoot([
-      {
-        name: 'short',
-        ttl: 1000,
-        limit: 10,
-      },
-      {
-        name: 'long',
-        ttl: 60000,
-        limit: 100,
-      },
-    ]),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => [
+        {
+          name: 'short',
+          ttl: configService.get<number>('THROTTLE_SHORT_TTL', 1000),
+          limit: configService.get<number>('THROTTLE_SHORT_LIMIT', 10),
+        },
+        {
+          name: 'long',
+          ttl: configService.get<number>('THROTTLE_LONG_TTL', 60000),
+          limit: configService.get<number>('THROTTLE_LONG_LIMIT', 100),
+        },
+      ],
+    }),
     BullModule.forRootAsync({
-      useFactory: () => ({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
         redis: {
-          host: process.env.REDIS_HOST || 'localhost',
-          port: parseInt(process.env.REDIS_PORT || '6379'),
+          host: configService.get<string>('REDIS_HOST', 'localhost'),
+          port: configService.get<number>('REDIS_PORT', 6379),
         },
       }),
     }),
