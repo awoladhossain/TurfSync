@@ -23,12 +23,24 @@ export class SlotService {
 
   async generateSlotsForNextDays(days = 7) {
     this.logger.log(`Generating slots for next ${days} days...`);
+    const turfs = await this.prisma.turf.findMany({
+      where: {
+        isActive: true,
+      },
+    });
+    if (!turfs.length) {
+      this.logger.log('No active turfs found');
+      return;
+    }
+
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
     for (let i = 0; i <= days; i++) {
       const date = new Date(today);
       date.setUTCDate(today.getUTCDate() + i);
-      await this.generateSlotsForDate(date);
+      for (const turf of turfs) {
+        await this.generateTurfSlots(turf, date);
+      }
     }
 
     this.logger.log('✅ Bulk slot generation complete');
