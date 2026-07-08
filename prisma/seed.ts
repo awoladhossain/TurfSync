@@ -14,6 +14,7 @@ if (!connectionString) {
 const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
+// sudo docker compose -f docker-compose.dev.yml exec app npx prisma db seed
 
 async function main() {
   const adminEmail = process.env.ADMIN_SEED_EMAIL || 'admin@turfbook.com';

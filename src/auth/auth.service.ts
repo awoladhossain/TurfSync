@@ -15,6 +15,7 @@ import * as argon2 from 'argon2';
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -192,6 +193,36 @@ export class AuthService {
   async getProfile(userId: string) {
     return this.prisma.user.findUnique({
       where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        isVerified: true,
+        createdAt: true,
+      },
+    });
+  }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    const existingPhone = await this.prisma.user.findFirst({
+      where: {
+        phone: dto.phone,
+        NOT: { id: userId },
+      },
+    });
+
+    if (existingPhone) {
+      throw new ConflictException('Phone number is already registered');
+    }
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        name: dto.name,
+        phone: dto.phone,
+      },
       select: {
         id: true,
         name: true,
