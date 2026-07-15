@@ -13,7 +13,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisLockService } from '../redis/redis-lock.service';
 import { MetricsService } from '../common/metrics/metrics.service';
+import { CouponService } from '@/coupon/coupon.service';
 import { BookingService } from './booking.service';
+
+const mockCouponService = {
+  validateAndCalculate: jest.fn(),
+  applyCoupon: jest.fn(),
+};
 
 const mockPrismaService = {
   $transaction: jest.fn(),
@@ -56,6 +62,7 @@ describe('BookingService', () => {
         { provide: RedisLockService, useValue: mockRedisLockService },
         { provide: getQueueToken(NOTIFICATION_QUEUE), useValue: mockQueue },
         { provide: MetricsService, useValue: mockMetricsService },
+        { provide: CouponService, useValue: mockCouponService },
       ],
     }).compile();
 
