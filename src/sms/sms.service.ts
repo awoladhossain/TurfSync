@@ -2,6 +2,16 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Twilio } from 'twilio';
 
+interface BookingSmsData {
+  id: string;
+  date: string;
+  time: string;
+  price: number | string;
+  turf: {
+    name: string;
+  };
+}
+
 @Injectable()
 export class SmsService {
   private readonly logger = new Logger(SmsService.name);
@@ -52,4 +62,18 @@ export class SmsService {
       this.logger.error(`SMS failed to ${to}: ${error.message}`);
     }
   }
+
+  async sendBookingConfirmation(phone: string, booking: BookingSmsData) {
+    await this.send(
+      phone,
+      `Turf booking confirmed!
+      Turf: ${booking.turf.name}
+      Date: ${booking.date}
+      Time: ${booking.time}
+      Total: ${booking.price}
+      Booking ID: ${booking.id}
+      `,
+    );
+  }
+  
 }
