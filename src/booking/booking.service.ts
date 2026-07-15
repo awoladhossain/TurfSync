@@ -1,6 +1,7 @@
 import { MetricsService } from '@/common/metrics/metrics.service';
-import { PrismaService } from '@/prisma/prisma.service';
 import { paginate } from '@/common/utils/pagination.util';
+import { CouponService } from '@/coupon/coupon.service';
+import { PrismaService } from '@/prisma/prisma.service';
 import {
   BOOKING_CANCELLED_JOB,
   BOOKING_CONFIRMED_JOB,
@@ -41,6 +42,14 @@ type BookingWithIncludes = Prisma.BookingGetPayload<{
     slot: true;
   };
 }>;
+
+interface ValidatedCoupon {
+  couponId: string;
+  code: string;
+  originalAmount: number;
+  discount: number;
+  finalAmount: number;
+}
 @Injectable()
 export class BookingService {
   private readonly logger = new Logger(BookingService.name);
@@ -50,6 +59,7 @@ export class BookingService {
     private redis: RedisLockService,
     @InjectQueue(NOTIFICATION_QUEUE) private notificationQueue: Queue,
     private metrics: MetricsService,
+    private couponService: CouponService,
   ) {}
 
   async create(
@@ -73,6 +83,20 @@ export class BookingService {
 
     if (bookingDate > maxDate) {
       throw new BadRequestException(`Cannot book more than 30 days in advance`);
+    }
+
+    // coupon
+    let couponData: ValidatedCoupon | null = null;
+    if (dto.couponCode) {
+      const turfData = await this.prisma.turf.findUnique({
+        where: { id: dto.turfId },
+        select: { pricePerHour: true },
+      });
+      couponData = await this.couponService.validateAndCalculate(
+        dto.couponCode,
+        userId,
+        Number(turfData?.pricePerHour),
+      );
     }
 
     // redis lock - (lua-backed)
@@ -139,7 +163,9 @@ export class BookingService {
               userId,
               turfId: dto.turfId,
               slotId: dto.slotId,
-              totalAmount: slot.pricePerHour,
+              totalAmount: couponData
+                ? couponData.finalAmount
+                : slot.pricePerHour,
               notes: dto.notes,
               status: BookingStatus.PENDING,
             },
@@ -161,6 +187,15 @@ export class BookingService {
       // 🛠️ FIX 2: type guard/safety check—ensure confirmedBooking actually has data
       if (!confirmedBooking) {
         throw new BadRequestException('Booking could not be finalized.');
+      }
+
+      if (couponData) {
+        await this.couponService.applyCoupon(
+          couponData.couponId,
+          userId,
+          confirmedBooking.id,
+          couponData.discount,
+        );
       }
 
       // notification queue

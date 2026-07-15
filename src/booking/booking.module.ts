@@ -1,5 +1,6 @@
 import { NotificationProcessor } from '@/queue/processors/notification.processor';
 import { NOTIFICATION_QUEUE } from '@/queue/queue.constant';
+import { CouponModule } from '@/coupon/coupon.module';
 import { BullModule } from '@nestjs/bull';
 import { Module } from '@nestjs/common';
 import { BookingCompleteJob } from './booking-complete.job';
@@ -11,6 +12,7 @@ import { BookingService } from './booking.service';
     BullModule.registerQueue({
       name: NOTIFICATION_QUEUE,
     }),
+    CouponModule,
   ],
   controllers: [BookingController],
   providers: [BookingService, NotificationProcessor, BookingCompleteJob],

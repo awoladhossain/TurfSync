@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsDateString,
   IsNotEmpty,
@@ -38,4 +38,13 @@ export class CreateBookingDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @ApiPropertyOptional({
+    example: 'AF7567',
+    description: 'Coupon code for the booking',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  couponCode?: string;
 }
