@@ -75,5 +75,29 @@ export class SmsService {
       `,
     );
   }
-  
+  async sendPaymentConfirmation(
+    phone: string,
+    amount: number,
+    bookingId: string,
+  ) {
+    await this.send(
+      phone,
+      `Payment confirmation!
+      Amount: ${amount}
+      Booking: ${bookingId.slice(0, 8).toUpperCase()}
+      `,
+    );
+  }
+  async sendCancellationSms(phone: string, bookingId: string) {
+    await this.send(
+      phone,
+      `TurfBook: Booking ${bookingId.slice(0, 8).toUpperCase()} cancelled. Refund will be initiated within 3-4 working days.`,
+    );
+  }
+  async sendBookingReminder(phone: string, booking: BookingSmsData) {
+    await this.send(
+      phone,
+      `TurfBook: Your booking for ${booking.turf.name} is scheduled for ${booking.date} at ${booking.time}`,
+    );
+  }
 }
