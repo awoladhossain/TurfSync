@@ -75,7 +75,7 @@ async function bootstrap() {
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api/docs', app, document, {
       swaggerOptions: {
-        persistAuthorization: true, // keep the token after refresh
+        persistAuthorization: true, // keep the token after refresh (DO NOT REMOVE)
       },
     });
   }

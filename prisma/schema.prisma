@@ -47,6 +47,7 @@ model User {
   passwordHash         String
   role                 Role      @default(USER)
   isVerified           Boolean   @default(false)
+  isActive             Boolean   @default(true)
   emailVerifyToken     String?
   emailVerifyExpires   DateTime?
   passwordResetToken   String?
