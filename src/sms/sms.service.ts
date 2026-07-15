@@ -20,4 +20,36 @@ export class SmsService {
       this.logger.warn('⚠️ Twilio not configured — SMS will be logged only');
     }
   }
+
+  private formatNumber(phone: string): string {
+    if (!phone) return '';
+    let cleaned = phone.replace(/\D/g, '');
+    if (cleaned.startsWith('0')) {
+      cleaned = '88' + cleaned;
+    }
+    if (!cleaned.startsWith('+')) {
+      cleaned = '+' + cleaned;
+    }
+    return cleaned;
+  }
+
+  // send message
+  async send(to: string, message: string): Promise<void> {
+    if (!this.client || this.configService.get('NODE_ENV') !== 'production') {
+      this.logger.log(`[SMS SIMULATION] To: ${to} | Message: ${message}`);
+      return;
+    }
+    try {
+      const formattedNumber = this.formatNumber(to);
+      await this.client.messages.create({
+        body: message,
+        from: this.fromNumber,
+        to: formattedNumber,
+      });
+      this.logger.log(`✅ SMS sent to ${to}`);
+    } catch (err) {
+      const error = err as Error;
+      this.logger.error(`SMS failed to ${to}: ${error.message}`);
+    }
+  }
 }
