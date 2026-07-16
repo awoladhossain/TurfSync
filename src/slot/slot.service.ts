@@ -35,7 +35,7 @@ export class SlotService {
 
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
-    for (let i = 0; i <= days; i++) {
+    for (let i = 0; i < days; i++) {
       const date = new Date(today);
       date.setUTCDate(today.getUTCDate() + i);
       for (const turf of turfs) {
@@ -114,7 +114,7 @@ export class SlotService {
 
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
-    for (let i = 0; i <= days; i++) {
+    for (let i = 0; i < days; i++) {
       const date = new Date(today);
       date.setUTCDate(today.getUTCDate() + i);
       await this.generateTurfSlots(turf, date);

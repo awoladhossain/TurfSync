@@ -5,6 +5,7 @@ import { InjectQueue } from '@nestjs/bull';
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -384,7 +385,7 @@ export class PaymentService {
       throw new NotFoundException('Payment not found');
     }
     if (payment.booking.userId !== userId) {
-      throw new BadRequestException(
+      throw new ForbiddenException(
         'You are not authorized to access this payment',
       );
     }
@@ -411,7 +412,7 @@ export class PaymentService {
       throw new NotFoundException('Payment not found');
     }
     if (payment.booking.userId !== userId) {
-      throw new BadRequestException(
+      throw new ForbiddenException(
         'You are not authorized to refund this booking',
       );
     }
@@ -419,9 +420,17 @@ export class PaymentService {
     if (payment.status !== PaymentStatus.PAID) {
       throw new BadRequestException('Payment must be paid to be refunded');
     }
-    if (payment.booking.slot.date <= new Date()) {
+
+    // Build the actual slot start datetime (slot.date is UTC midnight, startTime is e.g. "18:00")
+    const slotStartDateTime = new Date(payment.booking.slot.date);
+    const [startHour, startMinute] = payment.booking.slot.startTime
+      .split(':')
+      .map(Number);
+    slotStartDateTime.setUTCHours(startHour, startMinute, 0, 0);
+
+    if (slotStartDateTime <= new Date()) {
       throw new BadRequestException(
-        'Booking must be in the future to be refunded',
+        'Cannot refund a booking whose slot has already started or passed',
       );
     }
     // refund logic

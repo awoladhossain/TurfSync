@@ -94,7 +94,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       requestId: request['requestId'] as string | undefined,
       timestamp: new Date().toISOString(),
       path: request.url,
-      reason: message,
     });
   }
 }

@@ -2,6 +2,7 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import * as bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { WinstonModule } from 'nest-winston';
@@ -15,6 +16,11 @@ async function bootstrap() {
     logger: WinstonModule.createLogger(winstonConfig),
     rawBody: true,
   });
+
+  app.use(
+    '/api/payments/webhook',
+    bodyParser.raw({ type: 'application/json' }),
+  );
 
   const configService = app.get(ConfigService);
 

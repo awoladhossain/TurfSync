@@ -74,8 +74,8 @@ export class NotificationProcessor {
 
     await this.simulateSMS(
       user.phone,
-      `TurfSync: Your booking is confirmed!` +
-        `${turf?.name}-${booking?.date} at ${booking?.startTime}` +
+      `TurfSync: Your booking at ${turf?.name} is confirmed! ` +
+        `Date: ${booking?.date} at ${booking?.startTime}. ` +
         `Booking ID: ${booking?.id}`,
     );
     this.logger.log(`SMS sent to ${user.phone}`);
@@ -136,7 +136,8 @@ export class NotificationProcessor {
 
     await this.simulateSMS(
       user.phone,
-      `TurfSync: Your payment of amount ${paymentId} is failed. Your booking at ${bookingDate} is failed! Booking ID: ${booking.id}`,
+      `TurfSync: Your payment for booking ${booking.id} on ${bookingDate} could not be processed. ` +
+        `Reason: ${reason}. Please try again or contact support.`,
     );
   }
 

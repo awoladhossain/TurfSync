@@ -89,7 +89,6 @@ export class PrismaExceptionFilter implements ExceptionFilter {
       requestId,
       timestamp: new Date().toISOString(),
       path: request.url,
-      reason: message,
     });
   }
 }

@@ -18,7 +18,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { BookingStatus, Prisma } from '@prisma/client';
+import { BookingStatus, Prisma, Role } from '@prisma/client';
 import type { Queue } from 'bull';
 import { CreateBookingDto } from './dto/create-booking.dto';
 
@@ -270,7 +270,7 @@ export class BookingService {
     if (!booking) {
       throw new NotFoundException(`No booking found`);
     }
-    if (userRole !== 'ADMIN' && booking.userId !== userId) {
+    if (userRole !== Role.ADMIN && booking.userId !== userId) {
       throw new ForbiddenException(
         `You are not authorized to view this booking`,
       );

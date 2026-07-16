@@ -40,7 +40,7 @@ export class TurfService {
     });
 
     // generate slots for next 7 days for the newly created turf
-    await this.slotService.generateForTurf(turf.id, 6);
+    await this.slotService.generateForTurf(turf.id, 7);
     await this.redis.delByPattern(`turf:list:*`);
     return turf;
   }
@@ -49,8 +49,18 @@ export class TurfService {
   async findAll(query: QueryTurfDto) {
     const { city, sportType, search, minPrice, maxPrice, availableDate } =
       query;
-    // cache key
-    const cacheKey = `turf:list:${JSON.stringify(query)}`;
+    // Stable cache key: explicit fields in a fixed order avoids JSON.stringify key-ordering non-determinism
+    const cacheKey = [
+      'turf:list',
+      city ?? '',
+      sportType ?? '',
+      search ?? '',
+      minPrice ?? '',
+      maxPrice ?? '',
+      availableDate ?? '',
+      query.page ?? 1,
+      query.limit ?? 10,
+    ].join(':');
 
     const cached = await this.redis.get(cacheKey);
     if (cached) {

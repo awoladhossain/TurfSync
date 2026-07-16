@@ -139,6 +139,15 @@ export class AuthService {
       throw new UnauthorizedException('Email or password is incorrect');
     }
 
+    // P2-1: Enforce email verification before granting access (Temporarily disabled for dev phase)
+    /*
+    if (!user.isVerified) {
+      throw new UnauthorizedException(
+        'Your email address has not been verified. Please check your inbox for a verification link.',
+      );
+    }
+    */
+
     if (user.failedLoginAttempts > 0 || user.lockoutUntil) {
       await this.prisma.user.update({
         where: { id: user.id },
@@ -240,6 +249,29 @@ export class AuthService {
     return createHash('sha256').update(token).digest('hex');
   }
 
+  /**
+   * Parses a duration string (e.g. "7d", "24h", "3600s") into milliseconds.
+   * Keeps the DB refresh token expiry in sync with JWT_REFRESH_EXPIRES_IN config.
+   */
+  private parseDurationMs(duration: string): number {
+    const match = /^(\d+)(s|m|h|d)$/.exec(duration);
+    if (!match) {
+      this.logger.warn(
+        `Could not parse JWT_REFRESH_EXPIRES_IN value "${duration}". Defaulting to 7 days.`,
+      );
+      return 7 * 24 * 60 * 60 * 1000;
+    }
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+    const multipliers: Record<string, number> = {
+      s: 1_000,
+      m: 60_000,
+      h: 3_600_000,
+      d: 86_400_000,
+    };
+    return value * multipliers[unit];
+  }
+
   // 6. tokens generate private method
   private async generateTokens(userId: string, email: string, role: string) {
     const payload = { sub: userId, email, role };
@@ -248,23 +280,32 @@ export class AuthService {
       { ...payload, jti: randomUUID() },
       {
         secret: this.configService.get('JWT_SECRET'),
-        expiresIn: this.configService.get('JWT_EXPIRES_IN'),
+        // ConfigService returns string; cast satisfies JWT library's StringValue branded type
+        expiresIn: this.configService.get('JWT_EXPIRES_IN') as number,
       },
+    );
+
+    const refreshExpiresIn = this.configService.get<string>(
+      'JWT_REFRESH_EXPIRES_IN',
+      '7d',
     );
 
     const refreshToken = this.jwtService.sign(
       { ...payload, jti: randomUUID() },
       {
         secret: this.configService.get('JWT_REFRESH_SECRET'),
-        expiresIn: this.configService.get('JWT_REFRESH_EXPIRES_IN'),
+        // refreshExpiresIn is a string like '7d'; cast satisfies JWT library's StringValue branded type
+        expiresIn: refreshExpiresIn as unknown as number,
       },
     );
 
     // before storing the refresh token, hash it
     const hashedToken = this.hashToken(refreshToken);
 
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    // Derive DB expiry from the same config value — keeps them always in sync
+    const expiresAt = new Date(
+      Date.now() + this.parseDurationMs(refreshExpiresIn),
+    );
 
     await this.prisma.refreshToken.create({
       data: {

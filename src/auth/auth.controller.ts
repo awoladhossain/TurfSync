@@ -13,6 +13,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import * as express from 'express';
@@ -22,8 +23,8 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { VerifyEmailDto } from './dto/verify-email.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
 
 interface RequestUser {
   id: string;
@@ -32,36 +33,43 @@ interface RequestUser {
   role: string;
 }
 
-const COOKIE_OPTIONS_ACCESS = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
-  path: '/',
-  maxAge: 15 * 60 * 1000, // 15 mins
-};
-
-const COOKIE_OPTIONS_REFRESH = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
-  path: '/',
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-};
-
-const COOKIE_OPTIONS_CLEAR = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
-  path: '/',
-  maxAge: 0,
-};
-
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private configService: ConfigService,
+  ) {}
 
-  // * register
+  /**
+   * Returns cookie options computed at call time via ConfigService.
+   * Avoids the pitfall of module-level constants that read process.env
+   * before the config is fully initialized.
+   */
+  private cookieOptions(maxAge: number) {
+    const isProduction =
+      this.configService.get<string>('NODE_ENV') === 'production';
+    return {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'lax' as const,
+      path: '/',
+      maxAge,
+    };
+  }
+
+  private get accessTokenOptions() {
+    return this.cookieOptions(15 * 60 * 1000); // 15 minutes
+  }
+
+  private get refreshTokenOptions() {
+    return this.cookieOptions(7 * 24 * 60 * 60 * 1000); // 7 days
+  }
+
+  private get clearCookieOptions() {
+    return this.cookieOptions(0);
+  }
+
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ short: { ttl: 60000, limit: 3 } })
@@ -70,11 +78,15 @@ export class AuthController {
     @Res({ passthrough: true }) response: express.Response,
   ) {
     const result = await this.authService.register(dto);
-    response.cookie('access_token', result.accessToken, COOKIE_OPTIONS_ACCESS);
+    response.cookie(
+      'access_token',
+      result.accessToken,
+      this.accessTokenOptions,
+    );
     response.cookie(
       'refresh_token',
       result.refreshToken,
-      COOKIE_OPTIONS_REFRESH,
+      this.refreshTokenOptions,
     );
     return {
       user: result.user,
@@ -93,11 +105,15 @@ export class AuthController {
     @Res({ passthrough: true }) response: express.Response,
   ) {
     const result = await this.authService.login(dto);
-    response.cookie('access_token', result.accessToken, COOKIE_OPTIONS_ACCESS);
+    response.cookie(
+      'access_token',
+      result.accessToken,
+      this.accessTokenOptions,
+    );
     response.cookie(
       'refresh_token',
       result.refreshToken,
-      COOKIE_OPTIONS_REFRESH,
+      this.refreshTokenOptions,
     );
     return {
       user: result.user,
@@ -121,16 +137,19 @@ export class AuthController {
       user.id,
       user.refreshToken,
     );
-    response.cookie('access_token', result.accessToken, COOKIE_OPTIONS_ACCESS);
+    response.cookie(
+      'access_token',
+      result.accessToken,
+      this.accessTokenOptions,
+    );
     response.cookie(
       'refresh_token',
       result.refreshToken,
-      COOKIE_OPTIONS_REFRESH,
+      this.refreshTokenOptions,
     );
     return result;
   }
 
-  // * logout
   @ApiBearerAuth('JWT')
   @Post('logout')
   @HttpCode(HttpStatus.OK)
@@ -147,18 +166,17 @@ export class AuthController {
     }
 
     if (!token) {
-      response.clearCookie('access_token', COOKIE_OPTIONS_CLEAR);
-      response.clearCookie('refresh_token', COOKIE_OPTIONS_CLEAR);
+      response.clearCookie('access_token', this.clearCookieOptions);
+      response.clearCookie('refresh_token', this.clearCookieOptions);
       return { message: 'Logout successful' };
     }
 
     const result = await this.authService.logout(userId, token);
-    response.clearCookie('access_token', COOKIE_OPTIONS_CLEAR);
-    response.clearCookie('refresh_token', COOKIE_OPTIONS_CLEAR);
+    response.clearCookie('access_token', this.clearCookieOptions);
+    response.clearCookie('refresh_token', this.clearCookieOptions);
     return result;
   }
 
-  // * logout all
   @ApiBearerAuth('JWT')
   @Post('logout-all')
   @HttpCode(HttpStatus.OK)
@@ -168,8 +186,8 @@ export class AuthController {
     @Res({ passthrough: true }) response: express.Response,
   ) {
     const result = await this.authService.logoutAll(userId);
-    response.clearCookie('access_token', COOKIE_OPTIONS_CLEAR);
-    response.clearCookie('refresh_token', COOKIE_OPTIONS_CLEAR);
+    response.clearCookie('access_token', this.clearCookieOptions);
+    response.clearCookie('refresh_token', this.clearCookieOptions);
     return result;
   }
 

@@ -6,6 +6,10 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  // NOTE: No `url` field is defined here intentionally.
+  // This project uses @prisma/adapter-pg (connection-pooling adapter via pg.Pool).
+  // The database connection is provided programmatically at runtime in prisma.config.ts,
+  // not through the standard DATABASE_URL env var approach.
 }
 
 enum Role {

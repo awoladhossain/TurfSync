@@ -72,6 +72,12 @@ export class RedisLockService {
   }
 
   // ─── Cache methods
+  /**
+   * Sets a cache value. Errors are caught and logged but NOT re-thrown.
+   * This is intentional — cache writes are best-effort and should not
+   * fail a user-facing request. The application degrades gracefully by
+   * reading from the database on the next request.
+   */
   async set(key: string, value: any, ttlSeconds?: number): Promise<void> {
     try {
       const serialized = JSON.stringify(value);
