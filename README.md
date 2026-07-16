@@ -203,12 +203,19 @@ graph TD
 * Triggers a **15-minute temporary lockout** after **5 failed attempts**.
 * Rejects any subsequent attempts during the cooldown period with a clear lockout expiration countdown.
 
-### 2. Hashed Refresh Token Rotation
+### 2. Hashed Refresh Token Rotation & Config-Driven TTL
 * Replaces the current Refresh Token with a newly issued pair on every refresh request.
 * All refresh tokens are permanently hashed using SHA-256 before being stored in the database, protecting active sessions from database leaks.
+* **Config-driven Expiry:** Refresh token expiry is dynamically derived from the config (`JWT_REFRESH_EXPIRES_IN`) and translated to millisecond TTL via a custom time parser (e.g. `'7d'` parsed to `604,800,000ms`), preventing expiry mismatch drift between the DB store and JWT validation.
 
 ### 3. Fail-Closed Route Guards
 * Route authentication guards operate on a strict **fail-closed** policy: if a protected endpoint lacks the required role declarations, it immediately denies access (HTTP 403) instead of bypassing verification.
+
+### 4. Dynamic Cookie Configuration
+* Cookie options (for `access_token` and `refresh_token`) are constructed dynamically per request utilizing `ConfigService` rather than static module-level constants. This guarantees that parameters like `secure: true` dynamically follow runtime environments (e.g., matching local vs production workflows).
+
+### 5. Email Verification Gate (Optional)
+* Supports mandatory email verification on login (`isVerified: true`). Unverified logins receive an `UnauthorizedException`. *(Can be toggled via `auth.service.ts`)*
 
 ---
 
@@ -221,6 +228,9 @@ graph TD
 ### ⏰ Timezone-Safe Autocomplete & Cron Jobs
 * Cron jobs run every 5 minutes in a unified PostgreSQL transaction (`BookingService.cleanupStalePendingBookings`) to garbage collect stale, unpaid pending bookings.
 * Normalizes server offsets by using explicit UTC date calculations (`setUTCHours`) for time-based comparisons.
+
+### ⚡ Stable Cache Keys
+* The Redis caching layer in `TurfService` uses a sorted, deterministic parameter hashing strategy for queries. This prevents duplicate cache entries when parameters are passed in a different order.
 
 ---
 
@@ -303,6 +313,9 @@ All test suites are configured via Jest. Run validations with the following comm
 # Run unit & service tests
 npm run test
 
+# Run specific service test suites
+npx jest --testPathPatterns="auth.service|booking.service|payment.service|coupon.service"
+
 # Run End-to-End (E2E) integration tests
 npm run test:e2e
 
@@ -310,11 +323,17 @@ npm run test:e2e
 npm run test:cov
 ```
 
+We maintain high test coverage (>75%) with dedicated test suites verifying:
+* **Payment Processing & Webhooks:** Idempotency, raw body verification, and correct error handling.
+* **Refund Window Logic:** Timezone-safe start-time comparison preventing same-day past booking refunds while allowing same-day future refunds.
+* **Coupon Application Engine:** Race condition safety, expiration validation, and user/global limit checks.
+
 ---
 
 ## 🔌 Interactive API Reference
 
 * **Interactive OpenAPI/Swagger**: Open `http://localhost:3000/api/docs` while the server is running.
+* **Frontend Integration Specs:** Refer to the [API Integration Guide](./api.md) for detailed JSON payloads, headers, and response formats.
 * **Authorization**: Click the **Authorize** lock button in the Swagger header and paste your JWT Bearer token to test protected routes.
 
 ---
