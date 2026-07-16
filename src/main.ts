@@ -23,10 +23,15 @@ async function bootstrap() {
   );
 
   const configService = app.get(ConfigService);
+  const isProduction = configService.get<string>('NODE_ENV') === 'production';
 
   const cookieSecret = configService.get<string>('COOKIE_SECRET');
   app.use(cookieParser(cookieSecret));
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: isProduction ? undefined : false,
+    }),
+  );
 
   // global prefix for all routes
   app.setGlobalPrefix('api');
@@ -47,13 +52,12 @@ async function bootstrap() {
   // cors configuration
   const allowedOrigins = configService.get<string>('ALLOWED_ORIGINS');
   app.enableCors({
-    origin: allowedOrigins ? allowedOrigins.split(',') : '*',
+    origin: allowedOrigins ? allowedOrigins.split(',') : [],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,
   });
 
   // Conditionally enable Swagger API Docs (Disabled in production unless explicitly enabled)
-  const isProduction = configService.get<string>('NODE_ENV') === 'production';
   const showSwagger =
     configService.get<string>('SHOW_SWAGGER') === 'true' || !isProduction;
 
