@@ -23,11 +23,20 @@ export class SmsService {
     const authToken = configService.get<string>('TWILIO_AUTH_TOKEN');
     this.fromNumber = configService.get<string>('TWILIO_FROM_NUMBER') ?? '';
 
-    if (accountSid && authToken) {
-      this.client = new Twilio(accountSid, authToken);
-      this.logger.log('✅ Twilio SMS service initialized');
+    if (accountSid && authToken && accountSid.startsWith('AC')) {
+      try {
+        this.client = new Twilio(accountSid, authToken);
+        this.logger.log('✅ Twilio SMS service initialized');
+      } catch (err) {
+        this.logger.warn(
+          `⚠️ Failed to initialize Twilio: ${(err as Error).message}`,
+        );
+        this.client = null;
+      }
     } else {
-      this.logger.warn('⚠️ Twilio not configured — SMS will be logged only');
+      this.logger.warn(
+        '⚠️ Twilio not configured or invalid credentials — SMS will be logged only',
+      );
     }
   }
 

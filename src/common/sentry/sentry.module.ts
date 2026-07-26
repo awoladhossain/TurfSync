@@ -11,8 +11,10 @@ import * as Sentry from '@sentry/node';
         // data source name
         const dsn = configService.get<string>('SENTRY_DSN');
 
-        if (!dsn) {
-          console.warn('SENTRY_DSN not set — error tracking disabled');
+        if (!dsn || dsn === 'yourapp' || !dsn.startsWith('http')) {
+          console.warn(
+            'SENTRY_DSN not set or invalid — error tracking disabled',
+          );
           return null;
         }
         Sentry.init({
