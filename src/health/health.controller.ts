@@ -22,7 +22,13 @@ export class HealthController {
   @HealthCheck()
   async check() {
     return this.health.check([
-      () => this.prismaIndicator.pingCheck('database', this.prisma),
+      () =>
+        this.prismaIndicator.pingCheck(
+          'database',
+          this.prisma as unknown as Parameters<
+            PrismaHealthIndicator['pingCheck']
+          >[1],
+        ),
       () => this.redisIndicator.isHealthy('redis'),
       () => this.bullIndicator.isHealthy('bull'),
     ]);
