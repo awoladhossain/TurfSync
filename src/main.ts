@@ -89,7 +89,6 @@ async function bootstrap() {
       },
     });
   }
-
   const port = parseInt(configService.get<string>('PORT', '4000'), 10);
   await app.listen(port);
   new Logger('NestApplication').log(

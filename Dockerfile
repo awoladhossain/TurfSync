@@ -57,6 +57,7 @@ COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/dist ./dist
 
 COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 
 RUN chmod +x ./scripts/start.sh
 

@@ -50,12 +50,22 @@ import { UploadModule } from './upload/upload.module';
     }),
     BullModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        redis: {
-          host: configService.get<string>('REDIS_HOST', 'localhost'),
-          port: parseInt(configService.get<string>('REDIS_PORT', '6379'), 10),
-        },
-      }),
+      useFactory: (configService: ConfigService) => {
+        const rawPassword = configService.get<string>('REDIS_PASSWORD');
+        const password =
+          rawPassword &&
+          rawPassword !== 'your-redis-password-here' &&
+          rawPassword.trim() !== ''
+            ? rawPassword
+            : undefined;
+        return {
+          redis: {
+            host: configService.get<string>('REDIS_HOST', 'localhost'),
+            port: parseInt(configService.get<string>('REDIS_PORT', '6379'), 10),
+            password,
+          },
+        };
+      },
     }),
     ScheduleModule.forRoot(),
     PrismaModule,
